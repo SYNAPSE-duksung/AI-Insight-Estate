@@ -4,11 +4,15 @@ import json
 import os
 import math
 from pathlib import Path
+from dotenv import load_dotenv
+
+# --- .env 파일 로드 ---
+load_dotenv()
 
 # --- 설정 ---
-KAKAO_API_KEY = "726d5168a06b9b3652b3f46ca970803b"
-LLM_API_KEY = os.getenv("LLM_API_KEY","up_XpJxVUVa0VihCpijcIfahyGLKIWE7") 
-MODEL_NAME = "solar-pro"
+KAKAO_API_KEY = os.getenv("KAKAO_API_KEY")
+LLM_API_KEY = os.getenv("LLM_API_KEY")
+MODEL_NAME = os.getenv("MODEL_NAME", "solar-mini") 
 LLM_API_URL = "https://api.upstage.ai/v1/chat/completions" 
 
 INPUT_FILE = Path("data/raw/tiles/metadata.jsonl") 
@@ -81,7 +85,6 @@ async def get_landmark(session, lat, lon, sem):
     return None
 
 async def process_row_with_llm(session, item, sem, progress):
-    # 💡 이미 주입된 딕셔너리 객체(item)를 그대로 사용하도록 수정
     img_filename = item.get("file_name", "")
     original_text = item.get("text", "")
 
@@ -142,7 +145,7 @@ async def main():
 
     test_records = all_records
 
-    print(f"총 {len(test_records)}장 타일: Solar Pro 3 라벨링 시작...")
+    print(f"총 {len(test_records)}장 타일: {MODEL_NAME} 라벨링 시작...")
     progress = {'done': 0, 'total': len(test_records)}
     
     sem = asyncio.Semaphore(5)
