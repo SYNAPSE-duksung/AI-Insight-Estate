@@ -2,9 +2,7 @@
 AI-Insight Estate — 위성 이미지 기반 부동산 입지 탐색 서비스
 Streamlit Web UI (수직 플로우 통합 레이아웃)
 
-실행 방법:
-    pip install streamlit folium streamlit-folium pillow numpy
-    streamlit run app.py
+실행 방법: streamlit run app.py
 """
 
 import streamlit as st
