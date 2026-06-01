@@ -1,16 +1,9 @@
 """
+- 모든 기능이 다 되는 버전. 혹시 몰라 일단 남겨둠
 AI-Insight Estate — 위성 이미지 기반 부동산 입지 탐색 서비스
 Streamlit Web UI (수직 플로우 통합 레이아웃)
 
-실행 방법: streamlit run app.py
-
-*0601 기준 추가 수정이 필요한 부분*
-- 1단계 검색 후보군 개수를 3개로 했다고 하자,
-- 검색 결과로 나온 3개 중 가장 마음에 드는 입지 하나를 사용자가 선택한다
-- 예를 들어 이걸 2번이라고 하자
-- search_results의 2번을 선택하면 해당 번호가 선택됨을 시각적으로 명시(색을 바뀌게 한다거나, 2단계에 선택된 입지를 설명하는 란을 띄운다거나 등..)
-- 성동구 외 유사 입지를 탐색할 기준 지역 선택에 있는 선택지는 성동구를 제외하고 3개 이상의 동으로 한다.
-- 사용자가 행당동을 선택한다면, 행당동의 위성 이미지를 이미지 투 이미지 검색을 통해 성동구의 search_results 2번과 가장 유사한 입지(고정된 위성 이미지 혹은 해당 위성 이미지에 해당하는 고정된 지도) 3 곳을 제공한다.
+실행 방법: streamlit run app_v4.py
 """
 
 import streamlit as st
@@ -381,11 +374,153 @@ div[data-baseweb="select"] > div {
     line-height: 1.6;
 }
 
-@keyframes pulse {
-    0% { transform: scale(1); }
-    100% { transform: scale(1.08); }
+/* ── 카드 클릭 오버레이 버튼 ── */
+div[data-testid="column"] .stButton > button[kind="secondary"]:has(> div:empty),
+div[data-testid="column"] .stButton > button {
+    position: relative;
+    margin-top: -100%;
+    opacity: 0 !important;
+    height: 100%;
+    min-height: 180px;
+    cursor: pointer !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
 }
-</style>
+
+/* ── 선택된 카드 강조 ── */
+.rcard.selected {
+    border: 2.5px solid var(--accent) !important;
+    background: var(--accent-lt) !important;
+    box-shadow: 0 0 0 4px rgba(42,107,79,0.12), var(--shadow-lg) !important;
+    transform: translateY(-4px) !important;
+}
+.rcard.selected .rcard-sim { color: var(--accent); }
+
+/* ── 선택된 입지 요약 배너 ── */
+.selected-info-box {
+    background: linear-gradient(135deg, #e8f5ee 0%, #d4eee0 100%);
+    border: 2px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 1rem 1.4rem;
+    margin: 1.2rem 0 0.5rem 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+}
+.selected-info-icon { font-size: 1.5rem; flex-shrink: 0; margin-top: 0.1rem; }
+.selected-info-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.25rem;
+}
+.selected-info-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 0.2rem;
+}
+.selected-info-desc {
+    font-size: 0.82rem;
+    color: var(--text-sub);
+    line-height: 1.55;
+}
+
+/* ── 2단계 동 토글 버튼 ── */
+.district-toggle-wrap {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+.district-toggle-card {
+    flex: 1;
+    min-width: 200px;
+    background: var(--bg-white);
+    border: 1.5px solid var(--border-dark);
+    border-radius: var(--radius);
+    padding: 0.9rem 1.1rem;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+.district-toggle-card.active {
+    border-color: var(--accent2);
+    background: var(--accent2-lt);
+}
+.district-toggle-name {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 0.25rem;
+}
+.district-toggle-tag {
+    font-size: 0.73rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+/* ── 위성 이미지 유사 결과 카드 ── */
+.sat-result-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+.sat-card {
+    background: var(--bg-white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    transition: all 0.18s ease;
+    display: flex;
+    flex-direction: row;
+}
+.sat-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
+.sat-card-img {
+    flex: 2;
+    min-width: 0;
+    object-fit: cover;
+    display: block;
+    background: #e8e4de;
+    width: 100%;
+    height: auto;
+}
+.sat-card-img-placeholder {
+    flex: 2;
+    min-width: 0;
+    background: linear-gradient(135deg, #ddd8d0 0%, #c8c2ba 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    color: #999;
+    min-height: 120px;
+}
+.sat-card-body { padding: 0.9rem 1rem; flex: 3; min-width: 0; }
+.sat-card-rank {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--accent2);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.2rem;
+}
+.sat-card-name {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 0.3rem;
+}
+.sat-card-desc {
+    font-size: 0.78rem;
+    color: var(--text-sub);
+    line-height: 1.55;
+}
+
 """, unsafe_allow_html=True)
 
 
@@ -772,6 +907,21 @@ if "query_input_value" not in st.session_state:
     st.session_state["query_input_value"] = ""
 if "last_searched_query" not in st.session_state:
     st.session_state["last_searched_query"] = ""
+# 1단계에서 사용자가 선택한 결과 카드 인덱스
+if "selected_result_idx" not in st.session_state:
+    st.session_state["selected_result_idx"] = None
+# 2단계 토글 선택한 동
+if "selected_district_toggle" not in st.session_state:
+    st.session_state["selected_district_toggle"] = None
+# 위성 이미지 투 이미지 결과
+if "sat_results" not in st.session_state:
+    st.session_state["sat_results"] = None
+if "sat_base_label" not in st.session_state:
+    st.session_state["sat_base_label"] = ""
+if "sat_district_label" not in st.session_state:
+    st.session_state["sat_district_label"] = ""
+if "recommend_district_label" not in st.session_state:
+    st.session_state["recommend_district_label"] = ""
 
 # ─────────────────────────────────────────────
 # 헬퍼 함수
@@ -889,6 +1039,10 @@ if btn_text:
             st.session_state["final_results"] = st.session_state["search_results"]
             st.session_state["search_mode"] = "text"
             st.session_state["last_searched_query"] = text_query
+            st.session_state["selected_result_idx"] = None
+            st.session_state["selected_district_toggle"] = None
+            st.session_state["sat_results"] = None
+            st.session_state["recommend_district_label"] = ""
             # 검색 결과를 실행했을 때, 2단계 기본 선택 초기화
             if st.session_state["search_results"]:
                 st.session_state["selected_base"] = st.session_state["search_results"][0]["label"]
@@ -912,21 +1066,15 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-if st.session_state["final_results"] and st.session_state["search_mode"] != "":
-    current_results = st.session_state["final_results"]
-
+if st.session_state["search_results"] and st.session_state["search_mode"] != "":
+    # 1단계 결과는 모드에 관계없이 항상 search_results로 고정 표시
+    current_results = st.session_state["search_results"]
     # 검색 맥락을 알려주는 배너 출력
     if st.session_state["search_mode"] == "text":
         preview = st.session_state["last_searched_query"][:50] + ("…" if len(st.session_state["last_searched_query"]) > 50 else "")
         st.markdown(
             f'<div class="result-banner rb-green">'
             f'<b>🔍 1단계 입지 조건 검색결과 활성화</b> &nbsp;·&nbsp; "{preview}" 의 공간 벡터와 일치하는 성동구 상위 지역들</div>',
-            unsafe_allow_html=True,
-        )
-    elif st.session_state["search_mode"] == "recommend":
-        st.markdown(
-            f'<div class="result-banner rb-blue">'
-            f'<b>🖼️ 2단계 성동구 외 유사 입지 탐색 결과</b> &nbsp;·&nbsp; 기준지 "<b>{st.session_state["selected_base"]}</b>"과(와) 위성 구조가 유사한 인접구 대안 입지</div>',
             unsafe_allow_html=True,
         )
 
@@ -941,12 +1089,25 @@ if st.session_state["final_results"] and st.session_state["search_mode"] != "":
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # 2. 결과 카드 리스트 (그리드 정렬)
+    # 2. 결과 카드 리스트 (그리드 정렬) — 모든 모드에서 선택 버튼 유지
+    import math
+    def lat_lon_to_tile(lat, lon, zoom):
+        n = 2 ** zoom
+        x = int((lon + 180.0) / 360.0 * n)
+        y = int((1.0 - math.log(math.tan(math.radians(lat)) + 1.0 / math.cos(math.radians(lat))) / math.pi) / 2.0 * n)
+        return x, y
+
     st.markdown('<div class="results-grid">', unsafe_allow_html=True)
     for i, r in enumerate(current_results):
         rc_idx = min(i, len(CARD_CLS)-1)
+        is_selected = st.session_state["selected_result_idx"] == i
+        selected_cls = " selected" if is_selected else ""
+        selected_badge = '<div style="margin-top:0.6rem;font-size:0.78rem;font-weight:700;color:var(--accent);">✅ 선택됨</div>' if is_selected else ""
+        tx, ty = lat_lon_to_tile(r["lat"], r["lon"], 15)
+        tile_url = f"https://tile.openstreetmap.org/15/{tx}/{ty}.png"
         st.markdown(
-            f'<div class="rcard {CARD_CLS[rc_idx]}">'
+            f'<div class="rcard {CARD_CLS[rc_idx]}{selected_cls}" style="display:flex;gap:0;padding:0;overflow:hidden;align-items:stretch;">'
+            f'<div style="flex:1;min-width:0;padding:1.2rem;">'
             f'<div class="rcard-head">'
             f'<div><div class="rcard-rank {RANK_CLS[rc_idx]}">{RANK_SYM[rc_idx]}</div>'
             f'<div class="rcard-lbl">{r["label"]}</div></div>'
@@ -957,12 +1118,39 @@ if st.session_state["final_results"] and st.session_state["search_mode"] != "":
             f'{sbar("숲세권 수목밀도", r["green_ratio"], "#2A6B4F")}'
             f'{sbar("주동 건물밀도", r["building_ratio"], "#1E4B8F")}'
             f'<div class="rcard-coord">📍 {r["lat"]:.4f}°N &nbsp; {r["lon"]:.4f}°E</div>'
+            f'{selected_badge}'
+            f'</div>'
+            f'<div style="width:300px;height:300px;flex-shrink:0;border-left:1px solid var(--border);">'
+            f'<img src="{tile_url}" style="display:block;object-fit:cover;width:100%;height:100%;" />'
+            f'</div>'
             f'</div>',
             unsafe_allow_html=True,
         )
+        btn_label = "✅ 선택됨" if is_selected else "이 입지 선택"
+        if st.button(btn_label, key=f"select_card_{i}", use_container_width=True):
+            st.session_state["selected_result_idx"] = i
+            st.session_state["selected_base"] = r["label"]
+            st.session_state["selected_district_toggle"] = None
+            st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-else:
+    # 선택된 입지 요약 배너 (1단계 결과 표시 중이고 선택이 있을 때)
+    if st.session_state["search_mode"] in ("text", "satellite_img") and st.session_state["selected_result_idx"] is not None:
+        sel_idx = st.session_state["selected_result_idx"]
+        if sel_idx < len(current_results):
+            sel_r = current_results[sel_idx]
+            st.markdown(
+                f'<div class="selected-info-box">'
+                f'<div class="selected-info-icon">📌</div>'
+                f'<div>'
+                f'<div class="selected-info-label">✅ 선택된 기준 입지 — 2단계 유사 입지 탐색에 활용됩니다</div>'
+                f'<div class="selected-info-name">{RANK_SYM[sel_idx]} {sel_r["label"]}</div>'
+                f'<div class="selected-info-desc">{sel_r["text"]}</div>'
+                f'</div></div>',
+                unsafe_allow_html=True,
+            )
+
+elif st.session_state["search_mode"] == "":
     # 🌟 [개선] 사용자의 입지 탐색과 위성 이미지 이해를 적극적으로 돕는 가이드 일러스트 및 정보 영역
     st.markdown('<div class="guide-container">', unsafe_allow_html=True)
     
@@ -1026,51 +1214,293 @@ st.markdown("""
   <span class="sec-badge badge-blue">Cross-District Similarity</span>
 </div>
 <p class="sec-desc">
-  1단계 결과 중 가장 마음에 드는 입지를 선택하세요. 해당 위성 이미지와 시각적으로 가장 유사한 입지를
-  <b>성동구 인접 3개 권역</b>(광진구 자양·구의동 / 동대문구 제기·용두동 / 중구 신당·황학동)에서 탐색합니다.
+  1단계 결과 중 가장 마음에 드는 입지 블록을 클릭해 선택한 뒤, 아래 <b>탐색 기준 지역</b>을 선택하세요.
+  해당 위성 이미지와 시각적으로 가장 유사한 입지를 탐색합니다.
 </p>
 """, unsafe_allow_html=True)
 
+# 2단계 탐색 기준 지역 후보 (성동구 제외, 3개 동)
+DISTRICT_OPTIONS = [
+    {
+        "key": "자양동",
+        "label": "광진구 자양동",
+        "tag": "한강변·수변 녹지 매칭용",
+        "desc": "한강변 및 수변 녹지 환경과 유사한 입지 탐색에 적합합니다.",
+        "icon": "🌊",
+    },
+    {
+        "key": "가락문정동",
+        "label": "송파구 가락동·문정동 일대",
+        "tag": "고밀도 계획 주거 및 역세권 배후지 매칭용",
+        "desc": "고밀도 계획 주거지 및 역세권 배후 상업 환경 매칭에 특화됩니다.",
+        "icon": "🏙️",
+    },
+    {
+        "key": "신당황학동",
+        "label": "중구 신당동·황학동",
+        "tag": "구릉지 주택가 및 도심 배후용",
+        "desc": "구릉지형 저층 주택가와 도심 배후 상업 구역 매칭에 특화됩니다.",
+        "icon": "⛰️",
+    },
+]
+
+# 행당동 선택 시 보여줄 고정 위성 이미지 결과 (이미지 to 이미지 검색 결과 시뮬레이션)
+HAENGDANG_SAT_RESULTS = {
+    "자양동": [
+        {
+            "rank": 1,
+            "label": "광진구 자양동 (구의역 북측 중층단지)",
+            "desc": "중층 아파트 단지 배치 및 학교 접근성, 단지 내 소공원 구조가 행당동 위성 패턴과 가장 높은 유사도를 보이는 입지입니다.",
+            "map_url": "https://map.kakao.com/?map_type=SATELLITE&q=광진구+자양동+구의역",
+            "lat": 37.5495, "lon": 127.0910,
+            "img_emoji": "🛰️",
+            "img_desc": "위성 이미지: 중층 아파트 격자 배치, 단지 내 녹지 확인",
+        },
+        {
+            "rank": 2,
+            "label": "광진구 자양동 (자양중학교 인근 주거블록)",
+            "desc": "학교 밀집 구역과 정비된 보행로, 중층 주거 블록이 행당동의 학세권 패턴과 위성 구조적으로 일치합니다.",
+            "map_url": "https://map.kakao.com/?map_type=SATELLITE&q=광진구+자양동+자양중학교",
+            "lat": 37.5420, "lon": 127.0820,
+            "img_emoji": "🏫",
+            "img_desc": "위성 이미지: 학교·단지 조합 도로 격자 확인",
+        },
+        {
+            "rank": 3,
+            "label": "광진구 자양동 (어린이공원 배후 주거단지)",
+            "desc": "근린공원 접근성과 패밀리형 중층 단지 배치가 행당동 주거 커뮤니티 위성 구조와 매우 흡사합니다.",
+            "map_url": "https://map.kakao.com/?map_type=SATELLITE&q=광진구+자양동+어린이공원",
+            "lat": 37.5310, "lon": 127.0750,
+            "img_emoji": "🌳",
+            "img_desc": "위성 이미지: 공원 접근 단지, 보행로 패턴",
+        },
+    ],
+    "가락문정동": [
+        {
+            "rank": 1,
+            "label": "송파구 가락동 (가락시영 재건축 단지 일대)",
+            "desc": "대규모 재건축 중층 아파트 단지 배치 구조가 행당동 무학중고교 인근 블록 패턴과 위성 이미지 유사도가 가장 높습니다.",
+            "map_url": "https://map.kakao.com/?map_type=SATELLITE&q=송파구+가락동+가락시영",
+            "lat": 37.4980, "lon": 127.1120,
+            "img_emoji": "🏢",
+            "img_desc": "위성 이미지: 대단지 격자 배치, 단지 내 도로망",
+        },
+        {
+            "rank": 2,
+            "label": "송파구 문정동 (문정법조타운 배후 주거지)",
+            "desc": "정비된 중층 주거 단지와 학원가·근린 상업이 혼재하는 구조가 행당동 생활권 위성 패턴과 유사합니다.",
+            "map_url": "https://map.kakao.com/?map_type=SATELLITE&q=송파구+문정동+법조타운",
+            "lat": 37.4870, "lon": 127.1230,
+            "img_emoji": "🏘️",
+            "img_desc": "위성 이미지: 주거·상업 혼재 블록 구조",
+        },
+        {
+            "rank": 3,
+            "label": "송파구 가락동 (오금역 인근 중층 주거지)",
+            "desc": "역세권 배후 중층 주거 단지와 근린공원이 조합된 구조가 행당동 학세권과 위성 레이아웃 면에서 동일 유형입니다.",
+            "map_url": "https://map.kakao.com/?map_type=SATELLITE&q=송파구+가락동+오금역",
+            "lat": 37.5020, "lon": 127.1070,
+            "img_emoji": "🚇",
+            "img_desc": "위성 이미지: 역세권 배후 단지 배치",
+        },
+    ],
+    "신당황학동": [
+        {
+            "rank": 1,
+            "label": "중구 신당동 (약수역 배후 주거지)",
+            "desc": "지하철 6호선 인근 안정적 중층 주거 구역으로, 학원가와 근린 공원 혼재 패턴이 행당동 생활권과 위성 구조적으로 동일합니다.",
+            "map_url": "https://map.kakao.com/?map_type=SATELLITE&q=중구+신당동+약수역",
+            "lat": 37.5610, "lon": 127.0270,
+            "img_emoji": "🗺️",
+            "img_desc": "위성 이미지: 중층 주거·학원가 혼재 블록",
+        },
+        {
+            "rank": 2,
+            "label": "중구 신당동 (동국대 배후 주거지)",
+            "desc": "대학 인근 중층 주거와 근린 상업이 혼재한 구역으로, 학군·교육 시설 밀집 구조가 행당동 주거 패턴과 유사합니다.",
+            "map_url": "https://map.kakao.com/?map_type=SATELLITE&q=중구+신당동+동국대",
+            "lat": 37.5560, "lon": 127.0180,
+            "img_emoji": "🎓",
+            "img_desc": "위성 이미지: 대학 배후 주거·상업 혼재",
+        },
+        {
+            "rank": 3,
+            "label": "중구 황학동 (신당동 경계 중층 단지)",
+            "desc": "정비된 단지 배치와 학교 접근성 패턴이 행당동 학세권 구조와 위성상 동일 유형으로 분류됩니다.",
+            "map_url": "https://map.kakao.com/?map_type=SATELLITE&q=중구+황학동",
+            "lat": 37.5495, "lon": 127.0150,
+            "img_emoji": "🏠",
+            "img_desc": "위성 이미지: 중층 주거 블록, 정비 도로망",
+        },
+    ],
+}
+
 if st.session_state["search_results"]:
-    # 자연어 검색 완료 후 활성화되는 컨트롤 폼
     candidate_labels = [r["label"] for r in st.session_state["search_results"]]
-    
-    col_sel, col_btn = st.columns([2.5, 1])
+
+    # 현재 선택된 기준 입지
+    sel_idx_r = st.session_state.get("selected_result_idx", None)
+    if sel_idx_r is not None and sel_idx_r < len(st.session_state["search_results"]):
+        sel_base = st.session_state["search_results"][sel_idx_r]["label"]
+    else:
+        sel_base = st.session_state.get("selected_base", candidate_labels[0])
+
+    col_sel, col_btn2 = st.columns([2.5, 1])
     with col_sel:
-        # 이전에 선택한 이력이 세션에 보관되어 있다면 유지
-        default_idx = 0
-        if st.session_state["selected_base"] in candidate_labels:
-            default_idx = candidate_labels.index(st.session_state["selected_base"])
-            
-        selected_base_choice = st.selectbox(
+        district_labels = [o["label"] for o in DISTRICT_OPTIONS]
+        default_dist_idx = 0
+        if st.session_state["selected_district_toggle"] in [o["key"] for o in DISTRICT_OPTIONS]:
+            default_dist_idx = [o["key"] for o in DISTRICT_OPTIONS].index(st.session_state["selected_district_toggle"])
+
+        selected_district_label = st.selectbox(
             "성동구 외 유사 입지를 탐색할 기준 지역 선택",
-            options=candidate_labels,
-            index=default_idx,
-            key="selected_base_box"
+            options=district_labels,
+            index=default_dist_idx,
+            key="district_selectbox"
         )
-        # 세션에 상호 작용 값 실시간 기록
-        st.session_state["selected_base"] = selected_base_choice
-        st.markdown(f"ℹ️ **'{selected_base_choice}'** 의 위성 이미지 패턴을 기준으로 광진구·동대문구·중구에서 유사 입지를 탐색합니다.")
-        
-    with col_btn:
-        st.markdown('<div class="recommend-btn-container" style="padding-top: 1.6rem;">', unsafe_allow_html=True)
+        sel_district = next(o["key"] for o in DISTRICT_OPTIONS if o["label"] == selected_district_label)
+        st.session_state["selected_district_toggle"] = sel_district
+        opt_info = next(o for o in DISTRICT_OPTIONS if o["key"] == sel_district)
+        st.markdown(
+            f'ℹ️ **"{sel_base}"** 의 위성 이미지 패턴을 기준으로 '
+            f'**{opt_info["label"]}**({opt_info["tag"]})에서 유사 입지를 탐색합니다.'
+        )
+
+    with col_btn2:
+        st.markdown('<div class="recommend-btn-container" style="padding-top:1.6rem;">', unsafe_allow_html=True)
         btn_recommend = st.button("🖼️  성동구 외 유사 입지 탐색", use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
-        
+
     if btn_recommend:
-        with st.spinner(f"'{selected_base_choice}' 위성 패턴과 유사한 광진구·동대문구·중구 입지 추출 중..."):
-            recommend_candidates = DUMMY_RECOMMENDS.get(selected_base_choice, DUMMY_RECOMMENDS["성수동 1가 (서울숲 인근)"])
-            st.session_state["final_results"] = recommend_candidates
-            st.session_state["search_mode"] = "recommend"
-            st.rerun()  # 상태 전이에 맞춰 화면 새로고침 유도
-            
+        # 행당동 선택 + 어떤 동이든 → 위성 이미지 결과 표시
+        if "행당동" in sel_base:
+            with st.spinner(f"'{sel_base}' 위성 이미지 → {opt_info['label']} 이미지 투 이미지 유사 입지 탐색 중..."):
+                import time; time.sleep(1)
+                st.session_state["search_mode"] = "satellite_img"
+                st.session_state["sat_results"] = HAENGDANG_SAT_RESULTS[sel_district]
+                st.session_state["sat_base_label"] = sel_base
+                st.session_state["sat_district_label"] = opt_info["label"]
+                st.rerun()
+        else:
+            with st.spinner(f"'{sel_base}' 위성 패턴과 유사한 {opt_info['label']} 입지 추출 중..."):
+                recommend_candidates = DUMMY_RECOMMENDS.get(sel_base, DUMMY_RECOMMENDS["성수동 1가 (서울숲 인근)"])
+                st.session_state["final_results"] = recommend_candidates
+                st.session_state["search_mode"] = "recommend"
+                st.session_state["recommend_district_label"] = opt_info["label"]
+                st.rerun()
+
+    # ── 2단계 일반 추천 결과 (selectbox 하단) ──
+    if st.session_state.get("search_mode") == "recommend" and st.session_state.get("final_results"):
+        rec_res = st.session_state["final_results"]
+        rec_base = st.session_state.get("selected_base", "")
+        rec_district = st.session_state.get("recommend_district_label", "")
+        st.markdown("---")
+        st.markdown(
+            f'<div class="result-banner rb-blue">'
+            f'<b>🖼️ 2단계 유사 입지 탐색 결과</b> &nbsp;·&nbsp; '
+            f'기준지 "<b>{rec_base}</b>"과(와) 위성 구조가 유사한 <b>{rec_district}</b> 입지</div>',
+            unsafe_allow_html=True,
+        )
+        # 결과 카드 + 우측 지도 이미지 통합
+        import math
+        def lat_lon_to_tile(lat, lon, zoom):
+            n = 2 ** zoom
+            x = int((lon + 180.0) / 360.0 * n)
+            y = int((1.0 - math.log(math.tan(math.radians(lat)) + 1.0 / math.cos(math.radians(lat))) / math.pi) / 2.0 * n)
+            return x, y
+        st.markdown('<div class="results-grid">', unsafe_allow_html=True)
+        for i, r in enumerate(rec_res):
+            rc_idx = min(i, len(CARD_CLS)-1)
+            tx, ty = lat_lon_to_tile(r["lat"], r["lon"], 15)
+            tile_url = f"https://tile.openstreetmap.org/15/{tx}/{ty}.png"
+            st.markdown(
+                f'<div class="rcard {CARD_CLS[rc_idx]}" style="display:flex;gap:0;padding:0;overflow:hidden;align-items:stretch;">'
+                f'<div style="flex:1;min-width:0;padding:1.2rem;">'
+                f'<div class="rcard-head">'
+                f'<div><div class="rcard-rank {RANK_CLS[rc_idx]}">{RANK_SYM[rc_idx]}</div>'
+                f'<div class="rcard-lbl">{r["label"]}</div></div>'
+                f'<div style="text-align:right">'
+                f'<div class="rcard-sim">{int(r["similarity"]*100)}%</div>'
+                f'<div class="rcard-lbl">유사 지수</div></div></div>'
+                f'<div class="rcard-text">{r["text"]}</div>'
+                f'{sbar("숲세권 수목밀도", r["green_ratio"], "#2A6B4F")}'
+                f'{sbar("주동 건물밀도", r["building_ratio"], "#1E4B8F")}'
+                f'<div class="rcard-coord">📍 {r["lat"]:.4f}°N &nbsp; {r["lon"]:.4f}°E</div>'
+                f'</div>'
+                f'<div style="width:300px;height:300px;flex-shrink:0;border-left:1px solid var(--border);">'
+                f'<img src="{tile_url}" style="display:block;object-fit:cover;width:100%;height:100%;" />'
+                f'</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── 위성 이미지 투 이미지 결과 표시 (행당동 전용) ──
+    if st.session_state.get("search_mode") == "satellite_img" and st.session_state.get("sat_results"):
+        sat_res = st.session_state["sat_results"]
+        sat_base = st.session_state.get("sat_base_label", "")
+        sat_district = st.session_state.get("sat_district_label", "")
+
+        st.markdown("---")
+        st.markdown(
+            f'<div class="result-banner rb-blue">'
+            f'<b>🛰️ 이미지 투 이미지 탐색 결과</b> &nbsp;·&nbsp; '
+            f'<b>{sat_base}</b> 위성 이미지와 가장 유사한 <b>{sat_district}</b> 입지 3곳</div>',
+            unsafe_allow_html=True,
+        )
+        cards_html = '<div style="display:flex;flex-direction:column;gap:0.8rem;margin-top:1rem;">'
+        for sr in sat_res:
+            cards_html += (
+                f'<div style="background:#fff;border:1px solid #E2DED8;border-radius:12px;overflow:hidden;'
+                f'box-shadow:0 2px 14px rgba(0,0,0,0.06);display:flex;flex-direction:row;min-height:140px;">'
+                f'<div style="flex:3;min-width:0;padding:1rem 1.1rem;display:flex;flex-direction:column;justify-content:center;">'
+                f'<div style="font-size:0.72rem;font-weight:700;color:#1E4B8F;text-transform:uppercase;'
+                f'letter-spacing:0.1em;margin-bottom:0.25rem;">#{sr["rank"]} 유사 입지</div>'
+                f'<div style="font-size:0.95rem;font-weight:700;color:#1A1A1A;margin-bottom:0.3rem;">{sr["label"]}</div>'
+                f'<div style="font-size:0.72rem;color:#999990;margin-bottom:0.4rem;">{sr["img_desc"]}</div>'
+                f'<div style="font-size:0.78rem;color:#555550;line-height:1.55;">{sr["desc"]}</div>'
+                f'<div style="margin-top:0.6rem;">'
+                f'<a href="{sr["map_url"]}" target="_blank" '
+                f'style="font-size:0.78rem;color:#1E4B8F;font-weight:600;text-decoration:none;">'
+                f'🗺️ 위성 지도 열기 →</a></div>'
+                f'</div>'
+                f'<div style="flex:2;min-width:0;background:linear-gradient(135deg,#ddd8d0 0%,#c8c2ba 100%);'
+                f'display:flex;align-items:center;justify-content:center;font-size:3rem;color:#999;">'
+                f'{sr["img_emoji"]}</div>'
+                f'</div>'
+            )
+        cards_html += '</div>'
+        st.html(cards_html)
+
+        # 고정 위성 지도 이미지 (OSM 정적 타일)
+        import math
+        def lat_lon_to_tile(lat, lon, zoom):
+            n = 2 ** zoom
+            x = int((lon + 180.0) / 360.0 * n)
+            y = int((1.0 - math.log(math.tan(math.radians(lat)) + 1.0 / math.cos(math.radians(lat))) / math.pi) / 2.0 * n)
+            return x, y
+        zoom = 15
+        st.markdown('<div style="display:flex;gap:0.8rem;margin-top:1rem;flex-wrap:wrap;">', unsafe_allow_html=True)
+        for sr in sat_res:
+            tx, ty = lat_lon_to_tile(sr["lat"], sr["lon"], zoom)
+            tile_url = f"https://tile.openstreetmap.org/{zoom}/{tx}/{ty}.png"
+            st.markdown(
+                f'<div style="flex:1;min-width:200px;border-radius:10px;overflow:hidden;border:1px solid var(--border);box-shadow:var(--shadow);">'
+                f'<div style="font-size:0.72rem;font-weight:700;color:var(--accent2);padding:0.4rem 0.7rem;background:var(--accent2-lt);">'
+                f'#{sr["rank"]} {sr["label"]}</div>'
+                f'<img src="{tile_url}" width="100%" style="display:block;" />'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        st.markdown('</div>', unsafe_allow_html=True)
+
 else:
     # 1단계 검색이 선행되지 않았을 때의 비활성화 UI
     st.markdown(
         '<div style="border: 1.5px dashed var(--border-dark); padding: 2rem; border-radius: var(--radius);'
         ' background: var(--bg); text-align: center; color: var(--text-sub); font-size: 0.9rem;">'
         '🔒 상단의 <b>1단계 자연어 입지 검색</b> 결과가 나타나면, 결과 지역 중 하나를 선택하여 '
-        '<b>광진구·동대문구·중구</b> 내 유사 입지를 탐색할 수 있습니다.'
+        '<b>광진구 자양동 / 송파구 가락·문정동 / 중구 신당·황학동</b> 내 유사 입지를 탐색할 수 있습니다.'
         '</div>',
         unsafe_allow_html=True
     )
