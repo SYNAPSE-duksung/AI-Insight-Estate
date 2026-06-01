@@ -1,4 +1,5 @@
 """
+- UI 초안이었던 것
 AI-Insight Estate — 위성 이미지 기반 부동산 입지 탐색 서비스
 Streamlit Web UI (수직 플로우 통합 레이아웃)
 

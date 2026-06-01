@@ -2,7 +2,7 @@
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,venv,windows,visualstudiocode,macos,linux
 
 ### AI Insight Estate project
-*/raw/
+*/raw/tiles
 
 ### Linux ###
 *~
