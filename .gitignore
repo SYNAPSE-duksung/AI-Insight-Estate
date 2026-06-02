@@ -3,6 +3,14 @@
 
 ### AI Insight Estate project
 */raw/tiles
+*/raw/search_tiles
+.claude/
+# checkpoints/*
+# !checkpoints/.gitkeep
+checkpoints/clip_finetuned/*
+!checkpoints/clip_finetuned/.gitkeep
+data/processed/search_target/*
+!data/processed/search_target/.keep
 
 ### Linux ###
 *~
