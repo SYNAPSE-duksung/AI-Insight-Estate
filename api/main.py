@@ -34,6 +34,25 @@ from api.schemas import Step1Request, Step2Request, SearchResponse, LocationResu
 _ALL_DISTRICTS = ["seongdong"] + list(UI_LABEL_TO_DISTRICT.values())
 
 # ──────────────────────────────────────────────────────────────
+# STEP 1 / STEP 2 공통 — 행정구역 필터링 설정
+# ──────────────────────────────────────────────────────────────
+# reverse_geocode 주소의 행정구역 토큰에 기대 구 이름이 없으면 enrich 단계에서
+# 제외하고 다음 순위 후보로 백필합니다 (수집 bbox가 행정구역 경계와 어긋나
+# 인접 구 타일이 섞여 들어오는 누수 방지).
+_SEONGDONG_ADDRESS_PREFIX = "성동구"
+
+# STEP 2 탐색 대상 district 키 → 기대 행정구(구) 이름.
+# UI_LABEL_TO_DISTRICT 의 레이블("광진구 자양동" 등) 첫 토큰과 일치합니다.
+_DISTRICT_ADDRESS_PREFIX: dict[str, str] = {
+    "jayangdong":  "광진구",
+    "garakdong":   "송파구",
+    "sindangdong": "중구",
+}
+
+# 필터링으로 인한 손실을 감안해 top_k보다 넉넉히 후보를 확보하는 배수.
+_OVERSAMPLE_FACTOR = 3
+
+# ──────────────────────────────────────────────────────────────
 # Lifespan — 서버 시작 시 모델 + 인덱스 선로드
 # ──────────────────────────────────────────────────────────────
 
@@ -85,12 +104,24 @@ app.add_middleware(
 # 헬퍼 — raw 결과 → enriched → LocationResult 변환
 # ──────────────────────────────────────────────────────────────
 
-def _to_response(raw_results: list[dict]) -> SearchResponse:
+def _to_response(
+    raw_results:    list[dict],
+    *,
+    address_prefix: str | None = None,
+    target_count:   int | None = None,
+) -> SearchResponse:
     """
     search_step1() / search_step2() raw 결과를
     enrich_results() 로 풍부화한 뒤 SearchResponse 로 변환합니다.
+
+    address_prefix / target_count 는 STEP 1 행정구역 필터링·백필에만 사용되며
+    STEP 2 호출 시에는 전달하지 않습니다(다른 구역을 의도적으로 검색하므로).
     """
-    enriched = enrich_results(raw_results)
+    enriched = enrich_results(
+        raw_results,
+        address_prefix=address_prefix,
+        target_count=target_count,
+    )
     return SearchResponse(
         results=[LocationResult(**r) for r in enriched]
     )
@@ -115,10 +146,18 @@ def health():
 async def step1_search(req: Step1Request):
     try:
         loop        = asyncio.get_event_loop()
+        fetch_k     = req.top_k * _OVERSAMPLE_FACTOR
         raw_results = await loop.run_in_executor(
-            None, search_step1, req.query, req.top_k
+            None, search_step1, req.query, req.top_k, fetch_k
         )
-        return await loop.run_in_executor(None, _to_response, raw_results)
+        return await loop.run_in_executor(
+            None,
+            lambda: _to_response(
+                raw_results,
+                address_prefix=_SEONGDONG_ADDRESS_PREFIX,
+                target_count=req.top_k,
+            ),
+        )
     except FileNotFoundError as e:
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
@@ -140,11 +179,21 @@ async def step2_search(req: Step2Request):
         )
 
     try:
-        loop        = asyncio.get_event_loop()
-        raw_results = await loop.run_in_executor(
-            None, search_step2, req.image_path, req.district, req.top_k
+        loop           = asyncio.get_event_loop()
+        fetch_k        = req.top_k * _OVERSAMPLE_FACTOR
+        address_prefix = _DISTRICT_ADDRESS_PREFIX.get(req.district)
+        raw_results    = await loop.run_in_executor(
+            None,
+            lambda: search_step2(req.image_path, req.district, req.top_k, fetch_k=fetch_k),
         )
-        return await loop.run_in_executor(None, _to_response, raw_results)
+        return await loop.run_in_executor(
+            None,
+            lambda: _to_response(
+                raw_results,
+                address_prefix=address_prefix,
+                target_count=req.top_k,
+            ),
+        )
     except FileNotFoundError as e:
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:

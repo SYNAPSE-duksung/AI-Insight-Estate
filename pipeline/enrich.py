@@ -20,6 +20,8 @@ search.py 의 raw 검색 결과에 픽셀 분석, Kakao API, Solar LLM 정보를
 from __future__ import annotations
 
 import os
+import time  # api 호출 레이턴시 체크
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -165,6 +167,7 @@ def fetch_poi_summary(lat: float, lon: float) -> dict:
     ]
 
     def _fetch_count(category_code: str, radius: int) -> int:
+        _t0 = time.perf_counter()  # api 호출 레이턴시 체크
         try:
             resp = requests.get(
                 base_url,
@@ -183,8 +186,12 @@ def fetch_poi_summary(lat: float, lon: float) -> dict:
         except Exception as e:
             print(f"[enrich] fetch_poi({category_code}) 실패: {e}")
             return 0
+        finally:
+            print(f"[enrich] fetch_poi({category_code}) 소요시간: {time.perf_counter() - _t0:.3f}s")  # api 호출 레이턴시 체크
 
-    return {key: _fetch_count(code, radius) for code, radius, key in _TARGETS}
+    with ThreadPoolExecutor(max_workers=len(_TARGETS)) as executor:
+        counts = executor.map(lambda t: _fetch_count(t[0], t[1]), _TARGETS)
+        return {key: count for (_, _, key), count in zip(_TARGETS, counts)}
 
 
 # ──────────────────────────────────────────────────────────────
@@ -332,24 +339,52 @@ def generate_location_text(
 # 4. 통합 — enrich_results()
 # ──────────────────────────────────────────────────────────────
 
-def enrich_results(raw_results: list[dict]) -> list[dict]:
+def enrich_results(
+    raw_results:    list[dict],
+    *,
+    address_prefix: str | None = None,
+    target_count:   int | None = None,
+) -> list[dict]:
     """
     search_step1() / search_step2() 의 raw 결과 리스트를 받아
     픽셀 분석 · 카카오 API · Solar LLM 정보를 추가한 enriched 결과를 반환합니다.
 
     처리 순서 (결과 1건당):
-        1. compute_ratios(image_path)
+        1. reverse_geocode(lat, lon)
+               → address (한국어 주소)         (카카오 API, ~0.2s)
+               address_prefix 가 주어졌는데 주소의 행정구역 토큰(공백으로 분리한
+               단어들) 중에 이 값이 없으면 — 예: "서울 광진구 자양동 97-5"처럼
+               기대 구가 빠져 있는 경우 (수집 bbox가 행정구역 경계와 어긋나
+               인접 구가 섞여 들어온 경우) — 이 결과는 건너뛰고 raw_results의
+               다음 순위 후보로 대체합니다. 카카오 주소는 "서울 성동구 ..." /
+               "서울특별시 성동구 ..."처럼 구 이름이 문자열 맨 앞이 아니라
+               시/도 다음 토큰으로 오므로 단순 startswith 가 아닌 토큰 매칭을
+               사용합니다. — POI/LLM 호출 전에 걸러내어 불필요한 외부 API
+               비용을 줄입니다.
+        2. compute_ratios(image_path)
                → green_ratio, building_ratio  (픽셀 분석, ~1ms)
-        2. reverse_geocode(lat, lon)
-               → label (한국어 주소)           (카카오 API, ~0.2s)
         3. fetch_poi_summary(lat, lon)
                → station_count, cafe_count    (카카오 API, ~0.3s)
         4. generate_location_text(...)
                → text (입지 설명문)            (Solar LLM, ~0.3s)
 
     Args:
-        raw_results: search_step1() 또는 search_step2() 반환값.
+        raw_results:    search_step1() 또는 search_step2() 반환값.
             [{rank, tile_id, lat, lon, image_path, similarity}, ...]
+        address_prefix: 지정하면 reverse_geocode 주소의 행정구역 토큰 중에
+                        이 값이 포함된 결과만 채택합니다. (예: "성동구")
+                        주소가 "서울 성동구 ..." 형식이라 문자열 접두사가
+                        아닌 공백 분리 토큰 단위로 비교합니다.
+                        STEP 1처럼 검색 대상 구역이 고정된 경우, 타일 수집용
+                        bbox가 행정구역 경계와 완전히 일치하지 않아 인접 구
+                        (예: 광진구) 타일이 섞여 들어오는 것을 걸러낼 때 사용합니다.
+                        주소 조회에 실패해 빈 문자열이 반환된 경우는 판단할 수
+                        없으므로 필터링하지 않고 통과시킵니다.
+        target_count:   반환할 최종 결과 수 상한. address_prefix와 함께 사용하면
+                        필터링으로 제외된 자리를 raw_results의 다음 순위 후보로
+                        채워 최대 target_count개를 모을 때까지 진행합니다.
+                        지정하지 않으면 raw_results 전체를 처리합니다.
+                        (반환 결과의 rank는 최종 채택 순서대로 1..N 으로 재부여됩니다)
 
     Returns:
         enriched_results: app_v6.py 호환 형식.
@@ -372,21 +407,38 @@ def enrich_results(raw_results: list[dict]) -> list[dict]:
     enriched = []
 
     for r in raw_results:
+        if target_count is not None and len(enriched) >= target_count:
+            break   # 목표 개수를 채웠으면 나머지 후보는 처리하지 않음
+
         image_path  = r["image_path"]
         lat, lon    = r["lat"], r["lon"]
         similarity  = r["similarity"]
 
-        # ── 1. 픽셀 분석 ──────────────────────────────────────
+        # ── 1. 카카오 reverse geocode → 주소 (행정구역 필터링 선행) ──
+        # 카카오 주소는 "서울 성동구 옥수동 490-6" / "서울특별시 성동구 왕십리로 80"
+        # 형식으로, 구 이름이 맨 앞이 아니라 시/도 다음 토큰으로 옵니다.
+        # 따라서 문자열 접두사가 아니라 공백으로 분리한 토큰 단위로 비교합니다.
+        _t0 = time.perf_counter()  # api 호출 레이턴시 체크
+        address = reverse_geocode(lat, lon)
+        print(f"[enrich] reverse_geocode 소요시간: {time.perf_counter() - _t0:.3f}s")  # api 호출 레이턴시 체크
+        if address_prefix and address and address_prefix not in address.split():
+            print(
+                f"[enrich] 행정구역 불일치로 제외: {r['tile_id']} → '{address}' "
+                f"(기대 행정구역 '{address_prefix}') — 다음 순위 후보로 대체"
+            )
+            continue
+        label = address if address else r["tile_id"]   # 조회 실패 시 tile_id 표시
+
+        # ── 2. 픽셀 분석 ──────────────────────────────────────
         green_ratio, building_ratio = compute_ratios(image_path)
 
-        # ── 2. 카카오 reverse geocode → 주소 ─────────────────
-        address = reverse_geocode(lat, lon)
-        label   = address if address else r["tile_id"]   # 실패 시 tile_id 표시
-
         # ── 3. 카카오 POI 통계 ────────────────────────────────
+        _t0 = time.perf_counter()  # api 호출 레이턴시 체크
         poi = fetch_poi_summary(lat, lon)
+        print(f"[enrich] fetch_poi_summary 소요시간: {time.perf_counter() - _t0:.3f}s")  # api 호출 레이턴시 체크
 
         # ── 4. Solar LLM 입지 설명문 생성 ────────────────────
+        _t0 = time.perf_counter()  # api 호출 레이턴시 체크
         text = generate_location_text(
             address        = address,
             green_ratio    = green_ratio,
@@ -394,6 +446,7 @@ def enrich_results(raw_results: list[dict]) -> list[dict]:
             poi            = poi,
             similarity     = similarity,
         )
+        print(f"[enrich] generate_location_text 소요시간: {time.perf_counter() - _t0:.3f}s")  # api 호출 레이턴시 체크
 
         enriched.append({
             **r,                            # rank, tile_id, lat, lon, image_path, similarity 보존
@@ -402,6 +455,11 @@ def enrich_results(raw_results: list[dict]) -> list[dict]:
             "green_ratio":    green_ratio,
             "building_ratio": building_ratio,
         })
+
+    # 필터링/백필로 원본 FAISS 순위에 빈자리가 생길 수 있으므로 최종 채택 순서 기준 1..N 재부여
+    if address_prefix:
+        for i, item in enumerate(enriched, start=1):
+            item["rank"] = i
 
     return enriched
 

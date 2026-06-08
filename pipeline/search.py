@@ -187,24 +187,29 @@ def _run_faiss_search(
 # 공개 API
 # ──────────────────────────────────────────────────────────────
 
-def search_step1(query: str, top_k: int = 5) -> list[dict]:
+def search_step1(query: str, top_k: int = 5, fetch_k: int | None = None) -> list[dict]:
     """
     STEP 1: 자연어 쿼리 → 성동구 FAISS 검색.
 
     Args:
-        query:  사용자 입력 자연어 (예: "숲세권 조용한 저밀도 주거지")
-        top_k:  반환할 결과 수 (3~7, UI 슬라이더 값)
+        query:   사용자 입력 자연어 (예: "숲세권 조용한 저밀도 주거지")
+        top_k:   반환할 결과 수 (3~7, UI 슬라이더 값)
+        fetch_k: FAISS에서 실제로 가져올 후보 수. 지정하지 않으면 top_k와 동일.
+                 enrich 단계에서 행정구역(예: "성동구") 필터링 후 백필이 필요한
+                 경우(api/main.py STEP 1 엔드포인트) top_k보다 큰 값을 넘겨
+                 여유 후보를 확보합니다.
 
     Returns:
-        코사인 유사도 내림차순 정렬된 딕셔너리 리스트.
+        코사인 유사도 내림차순 정렬된 딕셔너리 리스트 (최대 fetch_k or top_k개).
         각 항목: {rank, tile_id, lat, lon, image_path, similarity}
     """
     engine             = get_engine()
     query_vec          = engine.encode_text(query)              # (1, clip_dim)
     index, tile_ids    = _load_index(_SEONGDONG_KEY)
+    k                  = fetch_k if fetch_k is not None else top_k
 
     return _run_faiss_search(
-        index, tile_ids, _SEONGDONG_KEY, query_vec, top_k
+        index, tile_ids, _SEONGDONG_KEY, query_vec, k
     )
 
 
@@ -213,6 +218,7 @@ def search_step2(
     district:        str,
     top_k:           int = 3,
     exclude_tile_id: str | None = None,
+    fetch_k:         int | None = None,
 ) -> list[dict]:
     """
     STEP 2: STEP 1에서 선택한 성동구 타일 이미지 → 선택 구역 FAISS 검색.
@@ -226,9 +232,13 @@ def search_step2(
         top_k:           반환할 결과 수 (기본 3)
         exclude_tile_id: 결과에서 제외할 tile_id.
                          이미지→이미지 검색 시 쿼리 이미지 자신을 제외할 때 사용.
+        fetch_k:         FAISS에서 실제로 가져올 후보 수. 지정하지 않으면 top_k와 동일.
+                         enrich 단계에서 행정구역(예: "광진구") 필터링 후 백필이
+                         필요한 경우(api/main.py STEP 2 엔드포인트) top_k보다 큰
+                         값을 넘겨 여유 후보를 확보합니다.
 
     Returns:
-        코사인 유사도 내림차순 정렬된 딕셔너리 리스트.
+        코사인 유사도 내림차순 정렬된 딕셔너리 리스트 (최대 fetch_k or top_k개).
         각 항목: {rank, tile_id, lat, lon, image_path, similarity}
 
     Raises:
@@ -245,9 +255,10 @@ def search_step2(
     engine          = get_engine()
     image_vec       = engine.encode_image(image_path)           # (1, clip_dim)
     index, tile_ids = _load_index(district)
+    k               = fetch_k if fetch_k is not None else top_k
 
     return _run_faiss_search(
-        index, tile_ids, district, image_vec, top_k, exclude_tile_id
+        index, tile_ids, district, image_vec, k, exclude_tile_id
     )
 
 
