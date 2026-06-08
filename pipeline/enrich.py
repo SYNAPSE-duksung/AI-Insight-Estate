@@ -20,6 +20,8 @@ search.py 의 raw 검색 결과에 픽셀 분석, Kakao API, Solar LLM 정보를
 from __future__ import annotations
 
 import os
+import time  # api 호출 레이턴시 체크
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -165,6 +167,7 @@ def fetch_poi_summary(lat: float, lon: float) -> dict:
     ]
 
     def _fetch_count(category_code: str, radius: int) -> int:
+        _t0 = time.perf_counter()  # api 호출 레이턴시 체크
         try:
             resp = requests.get(
                 base_url,
@@ -183,8 +186,12 @@ def fetch_poi_summary(lat: float, lon: float) -> dict:
         except Exception as e:
             print(f"[enrich] fetch_poi({category_code}) 실패: {e}")
             return 0
+        finally:
+            print(f"[enrich] fetch_poi({category_code}) 소요시간: {time.perf_counter() - _t0:.3f}s")  # api 호출 레이턴시 체크
 
-    return {key: _fetch_count(code, radius) for code, radius, key in _TARGETS}
+    with ThreadPoolExecutor(max_workers=len(_TARGETS)) as executor:
+        counts = executor.map(lambda t: _fetch_count(t[0], t[1]), _TARGETS)
+        return {key: count for (_, _, key), count in zip(_TARGETS, counts)}
 
 
 # ──────────────────────────────────────────────────────────────
@@ -411,7 +418,9 @@ def enrich_results(
         # 카카오 주소는 "서울 성동구 옥수동 490-6" / "서울특별시 성동구 왕십리로 80"
         # 형식으로, 구 이름이 맨 앞이 아니라 시/도 다음 토큰으로 옵니다.
         # 따라서 문자열 접두사가 아니라 공백으로 분리한 토큰 단위로 비교합니다.
+        _t0 = time.perf_counter()  # api 호출 레이턴시 체크
         address = reverse_geocode(lat, lon)
+        print(f"[enrich] reverse_geocode 소요시간: {time.perf_counter() - _t0:.3f}s")  # api 호출 레이턴시 체크
         if address_prefix and address and address_prefix not in address.split():
             print(
                 f"[enrich] 행정구역 불일치로 제외: {r['tile_id']} → '{address}' "
@@ -424,9 +433,12 @@ def enrich_results(
         green_ratio, building_ratio = compute_ratios(image_path)
 
         # ── 3. 카카오 POI 통계 ────────────────────────────────
+        _t0 = time.perf_counter()  # api 호출 레이턴시 체크
         poi = fetch_poi_summary(lat, lon)
+        print(f"[enrich] fetch_poi_summary 소요시간: {time.perf_counter() - _t0:.3f}s")  # api 호출 레이턴시 체크
 
         # ── 4. Solar LLM 입지 설명문 생성 ────────────────────
+        _t0 = time.perf_counter()  # api 호출 레이턴시 체크
         text = generate_location_text(
             address        = address,
             green_ratio    = green_ratio,
@@ -434,6 +446,7 @@ def enrich_results(
             poi            = poi,
             similarity     = similarity,
         )
+        print(f"[enrich] generate_location_text 소요시간: {time.perf_counter() - _t0:.3f}s")  # api 호출 레이턴시 체크
 
         enriched.append({
             **r,                            # rank, tile_id, lat, lon, image_path, similarity 보존
