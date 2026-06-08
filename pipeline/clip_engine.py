@@ -26,13 +26,19 @@ import torch
 from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
 
+from config import (
+    CLIP_FALLBACK_MODEL_PATH,
+    CLIP_FINETUNED_MODEL_PATH,
+    CLIP_TEXT_MAX_LENGTH,
+)
+
 # ──────────────────────────────────────────────────────────────
 # 설정
 # ──────────────────────────────────────────────────────────────
 
 # 파인튜닝 모델 경로 (없으면 기본 OpenAI 가중치로 자동 대체)
-_FINETUNED_PATH = "checkpoints/clip_finetuned"
-_FALLBACK_PATH  = "openai/clip-vit-base-patch32"
+_FINETUNED_PATH = CLIP_FINETUNED_MODEL_PATH
+_FALLBACK_PATH  = CLIP_FALLBACK_MODEL_PATH
 
 
 # ──────────────────────────────────────────────────────────────
@@ -115,7 +121,7 @@ class CLIPEngine:
                 return_tensors="pt",
                 padding=True,
                 truncation=True,
-                max_length=77,          # CLIP 최대 토큰 길이
+                max_length=CLIP_TEXT_MAX_LENGTH,
             ).to(self.device)
             feats = self.model.get_text_features(**inputs)
         return self._to_numpy_normalized(feats)   # (1, clip_dim)

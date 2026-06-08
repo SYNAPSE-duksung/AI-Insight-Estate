@@ -47,24 +47,22 @@ import faiss
 import numpy as np
 
 from pipeline.clip_engine import get_engine
+from config import (
+    PROJECT_ROOT,
+    SEARCH_TARGET_DB_DIR,
+    SEONGDONG_DISTRICT_KEY,
+    UI_LABEL_TO_DISTRICT,
+)
 
 # ──────────────────────────────────────────────────────────────
 # 경로 설정
 # ──────────────────────────────────────────────────────────────
 
-# 이 파일(pipeline/search.py)의 두 단계 위 = 프로젝트 루트
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
-_DB_DIR       = _PROJECT_ROOT / "data" / "processed" / "search_target"
-
-# UI selectbox 레이블 → district DB 키 매핑
-UI_LABEL_TO_DISTRICT: dict[str, str] = {
-    "광진구 자양동":          "jayangdong",
-    "송파구 가락동·문정동 일대": "garakdong",
-    "중구 신당동·황학동":      "sindangdong",
-}
+_PROJECT_ROOT = PROJECT_ROOT
+_DB_DIR       = SEARCH_TARGET_DB_DIR
 
 # STEP 1 전용 district 키 (성동구)
-_SEONGDONG_KEY = "seongdong"
+_SEONGDONG_KEY = SEONGDONG_DISTRICT_KEY
 
 
 # ──────────────────────────────────────────────────────────────

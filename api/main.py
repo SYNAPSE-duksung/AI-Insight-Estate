@@ -26,12 +26,18 @@ from pipeline.search import (
 )
 from pipeline.enrich import enrich_results
 from api.schemas import Step1Request, Step2Request, SearchResponse, LocationResult
+from config import (
+    DISTRICT_ADDRESS_PREFIX as _DISTRICT_ADDRESS_PREFIX,
+    SEARCH_OVERSAMPLE_FACTOR as _OVERSAMPLE_FACTOR,
+    SEONGDONG_ADDRESS_PREFIX as _SEONGDONG_ADDRESS_PREFIX,
+    SEONGDONG_DISTRICT_KEY,
+)
 
 # ──────────────────────────────────────────────────────────────
 # 선로드할 district 키 목록 (build_vector_db.py 와 일치)
 # ──────────────────────────────────────────────────────────────
 
-_ALL_DISTRICTS = ["seongdong"] + list(UI_LABEL_TO_DISTRICT.values())
+_ALL_DISTRICTS = [SEONGDONG_DISTRICT_KEY] + list(UI_LABEL_TO_DISTRICT.values())
 
 # ──────────────────────────────────────────────────────────────
 # STEP 1 / STEP 2 공통 — 행정구역 필터링 설정
@@ -39,18 +45,8 @@ _ALL_DISTRICTS = ["seongdong"] + list(UI_LABEL_TO_DISTRICT.values())
 # reverse_geocode 주소의 행정구역 토큰에 기대 구 이름이 없으면 enrich 단계에서
 # 제외하고 다음 순위 후보로 백필합니다 (수집 bbox가 행정구역 경계와 어긋나
 # 인접 구 타일이 섞여 들어오는 누수 방지).
-_SEONGDONG_ADDRESS_PREFIX = "성동구"
-
-# STEP 2 탐색 대상 district 키 → 기대 행정구(구) 이름.
-# UI_LABEL_TO_DISTRICT 의 레이블("광진구 자양동" 등) 첫 토큰과 일치합니다.
-_DISTRICT_ADDRESS_PREFIX: dict[str, str] = {
-    "jayangdong":  "광진구",
-    "garakdong":   "송파구",
-    "sindangdong": "중구",
-}
-
-# 필터링으로 인한 손실을 감안해 top_k보다 넉넉히 후보를 확보하는 배수.
-_OVERSAMPLE_FACTOR = 3
+# _SEONGDONG_ADDRESS_PREFIX / _DISTRICT_ADDRESS_PREFIX / _OVERSAMPLE_FACTOR 는
+# config.py 에서 가져옵니다 (상단 import 참고).
 
 # ──────────────────────────────────────────────────────────────
 # Lifespan — 서버 시작 시 모델 + 인덱스 선로드
