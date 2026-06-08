@@ -29,6 +29,22 @@ import requests
 from PIL import Image
 from dotenv import load_dotenv
 
+from config import (
+    BUILDING_GRAY_MAX,
+    BUILDING_GRAY_MIN,
+    BUILDING_RATIO_HIGH_THRESHOLD,
+    BUILDING_RATIO_MID_THRESHOLD,
+    BUILDING_SATURATION_MAX,
+    EXTERNAL_API_TIMEOUT,
+    GREEN_EXGR_THRESHOLD,
+    GREEN_RATIO_HIGH_THRESHOLD,
+    GREEN_RATIO_MID_THRESHOLD,
+    POI_CATEGORY_TARGETS,
+    SOLAR_MAX_TOKENS,
+    SOLAR_MODEL_NAME,
+    SOLAR_TEMPERATURE,
+)
+
 load_dotenv()
 
 # ──────────────────────────────────────────────────────────────
@@ -38,7 +54,7 @@ load_dotenv()
 _KAKAO_API   = os.getenv("KAKAO_API", "")
 _UPSTAGE_API = os.getenv("UPSTAGE_API", "")
 
-_REQUEST_TIMEOUT = 3   # 모든 외부 API 호출 공통 타임아웃 (초)
+_REQUEST_TIMEOUT = EXTERNAL_API_TIMEOUT   # 모든 외부 API 호출 공통 타임아웃 (초)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -68,8 +84,7 @@ def compute_ratios(image_path: str) -> tuple[float, float]:
 
         # ── 녹지율 ─────────────────────────────────────────────
         exgr         = 3 * G - 2.4 * R - B
-        # green_ratio  = float(np.sum(exgr > 15) / total)
-        green_ratio  = float(np.sum((exgr > 30) & (G > R) & (G > B)) / total)
+        green_ratio  = float(np.sum((exgr > GREEN_EXGR_THRESHOLD) & (G > R) & (G > B)) / total)
 
         # ── 건물밀도 ───────────────────────────────────────────
         gray         = (R + G + B) / 3.0
@@ -79,8 +94,11 @@ def compute_ratios(image_path: str) -> tuple[float, float]:
         c_max        = np.maximum(np.maximum(r_norm, g_norm), b_norm)
         c_min        = np.minimum(np.minimum(r_norm, g_norm), b_norm)
         saturation   = np.where(c_max > 0, (c_max - c_min) / c_max, 0.0) * 100
-        # building_mask    = (saturation < 20) & (gray > 70) & (gray < 195)
-        building_mask    = (saturation < 35) & (gray > 40) & (gray < 210)
+        building_mask    = (
+            (saturation < BUILDING_SATURATION_MAX)
+            & (gray > BUILDING_GRAY_MIN)
+            & (gray < BUILDING_GRAY_MAX)
+        )
         building_ratio   = float(np.sum(building_mask) / total)
 
         return round(green_ratio, 4), round(building_ratio, 4)
@@ -153,18 +171,7 @@ def fetch_poi_summary(lat: float, lon: float) -> dict:
     base_url = "https://dapi.kakao.com/v2/local/search/category.json"
     headers = {"Authorization": f"KakaoAK {_KAKAO_API}"}
 
-    # (카테고리 코드, 반경, 결과 딕셔너리 키)
-    _TARGETS = [
-        ("SW8", 500,  "station_count"),
-        ("MT1", 1000, "mart_count"),
-        ("CS2", 300,  "convenience_count"),
-        ("SC4", 500,  "school_count"),
-        ("PS3", 500,  "daycare_count"),
-        ("HP8", 500,  "hospital_count"),
-        ("PM9", 300,  "pharmacy_count"),
-        ("CE7", 300,  "cafe_count"),
-        ("FD6", 300,  "restaurant_count"),
-    ]
+    _TARGETS = POI_CATEGORY_TARGETS
 
     def _fetch_count(category_code: str, radius: int) -> int:
         _t0 = time.perf_counter()  # api 호출 레이턴시 체크
@@ -215,17 +222,17 @@ def _stub_text(
         parts.append(f"{address} 일대입니다.")
 
     # 녹지
-    if green_ratio >= 0.15:
+    if green_ratio >= GREEN_RATIO_HIGH_THRESHOLD:
         parts.append("녹지가 풍부해 쾌적한 환경을 갖추고 있습니다.")
-    elif green_ratio >= 0.05:
+    elif green_ratio >= GREEN_RATIO_MID_THRESHOLD:
         parts.append("적당한 녹지를 보유하고 있습니다.")
     else:
         parts.append("도심형 저녹지 지역입니다.")
 
     # 건물밀도
-    if building_ratio >= 0.4:
+    if building_ratio >= BUILDING_RATIO_HIGH_THRESHOLD:
         parts.append("건물 밀도가 높은 고밀도 주거·상업 혼합 지역입니다.")
-    elif building_ratio >= 0.2:
+    elif building_ratio >= BUILDING_RATIO_MID_THRESHOLD:
         parts.append("중밀도 주거 지역입니다.")
     else:
         parts.append("저밀도 주거 환경입니다.")
@@ -320,10 +327,10 @@ def generate_location_text(
                 "Content-Type":  "application/json",
             },
             json={
-                "model":       "solar-1-mini-chat",
+                "model":       SOLAR_MODEL_NAME,
                 "messages":    [{"role": "user", "content": prompt}],
-                "max_tokens":  150,
-                "temperature": 0.7,
+                "max_tokens":  SOLAR_MAX_TOKENS,
+                "temperature": SOLAR_TEMPERATURE,
             },
             timeout=_REQUEST_TIMEOUT,
         )
