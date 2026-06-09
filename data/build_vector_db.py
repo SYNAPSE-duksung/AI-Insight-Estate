@@ -31,6 +31,7 @@ import torch
 from PIL import Image
 from transformers import CLIPProcessor, CLIPModel
 from tqdm import tqdm
+from peft import PeftModel
 
 
 # ──────────────────────────────────────────────────────────────
@@ -70,8 +71,9 @@ REGION_CONFIGS = [
 ]
 
 # 출력 경로
-OUT_DIR      = "data/processed/search_target"
-MODEL_PATH   = "checkpoints/clip_finetuned"   # 없으면 기본 OpenAI 가중치 사용
+OUT_DIR      = "data/processed/search_target_v2"
+BASE_MODEL_PATH   = "checkpoints/clip_finetuned_v1"
+LORA_ADAPTER_PATH = "checkpoints/clip_finetuned_v2"
 BATCH_SIZE   = 32
 IMG_EXTS     = {".jpg", ".jpeg", ".png"}
 
@@ -125,17 +127,27 @@ def collect_image_paths(folder: str) -> list[str]:
     )
 
 
-def load_clip_model(model_path: str, device: str):
-    """
-    파인튜닝된 CLIP 모델을 로드합니다.
-    model_path 가 없으면 기본 OpenAI 가중치로 대체합니다.
-    """
+def load_clip_model(device: str):
     fallback = "openai/clip-vit-base-patch32"
-    src = model_path if os.path.exists(model_path) else fallback
-    tag = "파인튜닝 모델" if src == model_path else f"기본 모델 (파인튜닝 없음: {fallback})"
-    print(f"{tag} 로드: {src}")
-    model     = CLIPModel.from_pretrained(src).to(device)
-    processor = CLIPProcessor.from_pretrained(src)
+    base_exists = os.path.exists(BASE_MODEL_PATH)
+    lora_exists = os.path.exists(LORA_ADAPTER_PATH)
+
+    if base_exists and lora_exists:
+        print(f"베이스 모델 로드: {BASE_MODEL_PATH}")
+        model = CLIPModel.from_pretrained(BASE_MODEL_PATH, torch_dtype=torch.float32).to(device)
+        print(f"LoRA 어댑터 적용: {LORA_ADAPTER_PATH}")
+        model = PeftModel.from_pretrained(model, LORA_ADAPTER_PATH)
+        model = model.merge_and_unload()
+        processor = CLIPProcessor.from_pretrained(BASE_MODEL_PATH)
+    elif base_exists:
+        print(f"v1 가중치 로드 (LoRA 없음): {BASE_MODEL_PATH}")
+        model     = CLIPModel.from_pretrained(BASE_MODEL_PATH).to(device)
+        processor = CLIPProcessor.from_pretrained(BASE_MODEL_PATH)
+    else:
+        print(f"파인튜닝 모델 없음 → 기본 모델 사용: {fallback}")
+        model     = CLIPModel.from_pretrained(fallback).to(device)
+        processor = CLIPProcessor.from_pretrained(fallback)
+
     model.eval()
     return model, processor
 
@@ -328,7 +340,7 @@ def main():
     print(f"디바이스: {device}")
 
     # 모델 1회 로드 (4개 지역 공통 사용)
-    model, processor = load_clip_model(MODEL_PATH, device)
+    model, processor = load_clip_model(device)
 
     # 실제 CLIP 출력 차원 자동 감지
     with torch.no_grad():

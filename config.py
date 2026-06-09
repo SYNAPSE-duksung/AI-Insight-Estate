@@ -17,7 +17,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent
 
 # FAISS 인덱스 · SQLite 메타데이터가 위치한 검색 대상 DB 디렉터리
-SEARCH_TARGET_DB_DIR = PROJECT_ROOT / "data" / "processed" / "search_target"
+SEARCH_TARGET_DB_DIR = PROJECT_ROOT / "data" / "processed" / "search_target_v2"
 
 
 # ──────────────────────────────────────────────────────────────
@@ -25,7 +25,8 @@ SEARCH_TARGET_DB_DIR = PROJECT_ROOT / "data" / "processed" / "search_target"
 # ──────────────────────────────────────────────────────────────
 
 # 파인튜닝 모델 경로 (없으면 기본 OpenAI 가중치로 자동 대체)
-CLIP_FINETUNED_MODEL_PATH = "checkpoints/clip_finetuned"
+CLIP_BASE_MODEL_PATH   = "checkpoints/clip_finetuned_v1"   # v1 전체 가중치 (LoRA 베이스)
+CLIP_LORA_ADAPTER_PATH = "checkpoints/clip_finetuned_v2"   # LoRA 어댑터
 CLIP_FALLBACK_MODEL_PATH  = "openai/clip-vit-base-patch32"
 
 # CLIP 텍스트 인코더 최대 토큰 길이

@@ -25,10 +25,12 @@ import numpy as np
 import torch
 from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
+from peft import PeftModel
 
 from config import (
+    CLIP_BASE_MODEL_PATH,
+    CLIP_LORA_ADAPTER_PATH,
     CLIP_FALLBACK_MODEL_PATH,
-    CLIP_FINETUNED_MODEL_PATH,
     CLIP_TEXT_MAX_LENGTH,
 )
 
@@ -36,9 +38,9 @@ from config import (
 # 설정
 # ──────────────────────────────────────────────────────────────
 
-# 파인튜닝 모델 경로 (없으면 기본 OpenAI 가중치로 자동 대체)
-_FINETUNED_PATH = CLIP_FINETUNED_MODEL_PATH
-_FALLBACK_PATH  = CLIP_FALLBACK_MODEL_PATH
+_BASE_MODEL_PATH    = CLIP_BASE_MODEL_PATH      # v1 전체 가중치 (LoRA 베이스)
+_LORA_ADAPTER_PATH  = CLIP_LORA_ADAPTER_PATH    # LoRA 어댑터
+_FALLBACK_PATH      = CLIP_FALLBACK_MODEL_PATH
 
 
 # ──────────────────────────────────────────────────────────────
@@ -52,29 +54,54 @@ class CLIPEngine:
     반환 벡터끼리의 내적 = 코사인 유사도 ([-1, 1] 범위).
     """
 
-    def __init__(self, model_path: str = _FINETUNED_PATH) -> None:
+    def __init__(self) -> None:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.model, self.processor = self._load(model_path)
+        self.model, self.processor = self._load()
         # 실제 CLIP 임베딩 차원 자동 감지
         self.clip_dim: int = self._detect_dim()
         print(f"[CLIPEngine] 로드 완료 | device={self.device} | dim={self.clip_dim}")
 
     # ── 내부 메서드 ────────────────────────────────────────────
 
-    def _load(self, model_path: str) -> tuple[CLIPModel, CLIPProcessor]:
+    def _load(self) -> tuple[CLIPModel, CLIPProcessor]:
         """
-        파인튜닝 모델 로드. 없으면 기본 OpenAI 가중치로 대체.
-        build_vector_db.py 의 load_clip_model() 패턴과 동일.
+        우선순위에 따라 모델을 로드합니다.
+ 
+        LoRA 어댑터가 있는 경우:
+            1. 베이스 모델(_BASE_MODEL_PATH) 로드
+            2. PeftModel.from_pretrained()로 LoRA 어댑터 적용
+            3. merge_and_unload()로 LoRA를 베이스에 병합
+               → 일반 CLIPModel로 변환되어 이후 코드 변경 불필요
         """
-        if os.path.exists(model_path):
-            src = model_path
-            print(f"[CLIPEngine] 파인튜닝 모델 로드: {src}")
+        base_exists  = os.path.exists(_BASE_MODEL_PATH)
+        lora_exists  = os.path.exists(_LORA_ADAPTER_PATH)
+ 
+        if base_exists and lora_exists:
+            # ── LoRA 어댑터 병합 ──────────────────────────────
+            print(f"[CLIPEngine] 베이스 모델 로드: {_BASE_MODEL_PATH}")
+            model = CLIPModel.from_pretrained(
+                _BASE_MODEL_PATH, torch_dtype=torch.float32
+            ).to(self.device)
+ 
+            print(f"[CLIPEngine] LoRA 어댑터 적용: {_LORA_ADAPTER_PATH}")
+            model = PeftModel.from_pretrained(model, _LORA_ADAPTER_PATH)
+ 
+            print("[CLIPEngine] LoRA → 베이스 병합(merge_and_unload) 중...")
+            model = model.merge_and_unload()   # 일반 CLIPModel로 변환
+            processor = CLIPProcessor.from_pretrained(_BASE_MODEL_PATH)
+ 
+        elif base_exists:
+            # ── v1 전체 가중치만 사용 ─────────────────────────
+            print(f"[CLIPEngine] v1 가중치 로드 (LoRA 없음): {_BASE_MODEL_PATH}")
+            model     = CLIPModel.from_pretrained(_BASE_MODEL_PATH).to(self.device)
+            processor = CLIPProcessor.from_pretrained(_BASE_MODEL_PATH)
+ 
         else:
-            src = _FALLBACK_PATH
-            print(f"[CLIPEngine] 파인튜닝 모델 없음 → 기본 모델 사용: {src}")
-
-        model     = CLIPModel.from_pretrained(src).to(self.device)
-        processor = CLIPProcessor.from_pretrained(src)
+            # ── fallback: OpenAI 기본 가중치 ──────────────────
+            print(f"[CLIPEngine] 파인튜닝 모델 없음 → 기본 모델 사용: {_FALLBACK_PATH}")
+            model     = CLIPModel.from_pretrained(_FALLBACK_PATH).to(self.device)
+            processor = CLIPProcessor.from_pretrained(_FALLBACK_PATH)
+ 
         model.eval()
         return model, processor
 
@@ -199,21 +226,14 @@ class CLIPEngine:
 _engine_instance: CLIPEngine | None = None
 
 
-def get_engine(model_path: str = _FINETUNED_PATH) -> CLIPEngine:
+def get_engine() -> CLIPEngine:
     """
     CLIPEngine 싱글톤을 반환합니다.
     첫 호출 시에만 모델을 로드하고, 이후 호출은 캐시된 인스턴스를 반환합니다.
-
-    FastAPI lifespan 에서 서버 시작 시 1회 호출하면
-    이후 모든 요청에서 재사용됩니다.
-
-    Example:
-        engine = get_engine()
-        vec = engine.encode_text("역세권 고밀도 단지")
     """
     global _engine_instance
     if _engine_instance is None:
-        _engine_instance = CLIPEngine(model_path)
+        _engine_instance = CLIPEngine()
     return _engine_instance
 
 
