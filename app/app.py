@@ -71,12 +71,12 @@ st.markdown("""
 st.markdown("""
 <div class="sec-head">
   <div class="sec-title-wrap">
-    <span class="sec-title">🔍 1단계: 자연어 기반 입지 검색 및 수치 명세</span>
+    <span class="sec-title">🔍 1단계: 원하는 입지 조건 검색</span>
   </div>
   <span class="sec-badge badge-green">Semantic Vector Search</span>
 </div>
 <p class="sec-desc">
-  원하는 주거 환경, 녹지 분포, 대중교통 인접성 등 구체적인 형태를 말하듯 입력해 주세요. 위성 데이터셋과의 정밀 매칭 알고리즘이 가동됩니다.
+  살고 싶은 동네의 분위기를 자유롭게 입력해 주세요. CLIP 모델이 성동구 위성 이미지와 비교해 가장 가까운 입지를 찾아드립니다.
 </p>
 """, unsafe_allow_html=True)
 
@@ -92,7 +92,7 @@ for idx, query_tag in enumerate(EXAMPLE_QUERIES):
 text_query = st.text_area(
     label="입지 조건 명세 입력",
     label_visibility="collapsed",
-    placeholder="예: 서울숲 가깝고 주변 환경이 평화로우며 카페들이 아기자기하게 퍼져 있는 저밀도 주거 구역",
+    placeholder="예: 나무가 많고 조용하면서 카페가 가까운 저층 주거 지역",
     height=90,
     value=st.session_state["query_input_value"],
 )
@@ -107,13 +107,13 @@ with col_ctrl1:
     )
 with col_ctrl2:
     st.markdown('<div style="padding-top: 1rem;">', unsafe_allow_html=True)
-    btn_text = st.button("🔍  성동구 위성 패턴 정밀 검색", use_container_width=True)
+    btn_text = st.button("🔍  성동구 입지 검색", use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 if btn_text:
     if text_query.strip():
         try:
-            with st.spinner("성동구 위성 이미지 토폴로지 분석 및 인프라 시맨틱 벡터 스캔 중..."):
+            with st.spinner("성동구 위성 이미지를 분석하는 중입니다..."):
                 results = search_step1_api(text_query, top_k)
         except RuntimeError as e:
             st.error(f"🚫 {e}")
@@ -139,7 +139,7 @@ if btn_text:
 st.markdown("""
 <div class="sec-head">
   <div class="sec-title-wrap">
-    <span class="sec-title">🛰️ 위성 이미지 분석 및 탐색 공간 매핑</span>
+    <span class="sec-title">🛰️ 검색 결과 — 위성 이미지 및 지도</span>
   </div>
   <span class="sec-badge badge-green" style="background:#f4f0ea; color:#555;">Live Spatial Viewer</span>
 </div>
@@ -205,9 +205,9 @@ elif st.session_state["search_mode"] == "":
     st.markdown("""
     <div class="guide-main-card">
       <div class="guide-icon-animation">🛰️</div>
-      <div class="guide-title">성동구 시맨틱 위성 입지 추천 모델 대기 중</div>
+      <div class="guide-title">입지 검색을 시작해 주세요</div>
       <p class="guide-subtitle">
-        상단에서 자연어로 묘사한 가이드 텍스트를 기반으로, CLIP-ResNet 공간 벡터 매칭 장치가 성동구 내 모든 위성 아일랜드의 필지 밀도 및 주거 환경을 스캐닝하기 시작합니다.
+        위에서 원하는 입지 조건을 입력하면, AI가 성동구 위성 이미지 전체를 분석해 가장 비슷한 분위기의 지역을 찾아드립니다.
       </p>
     </div>
     """, unsafe_allow_html=True)
@@ -219,8 +219,8 @@ elif st.session_state["search_mode"] == "":
     st.markdown("""
     <div class="guide-card">
       <div class="guide-card-icon">🌲</div>
-      <div class="guide-card-title">식생 환경 수치화 (Greenery)</div>
-      <p class="guide-card-desc">위성 이미지의 근적외선 파장 대안 분포 모델링을 통해 실제 산책로 및 공원 숲의 배치 텍스처 밀도를 자동으로 탐지해냅니다.</p>
+      <div class="guide-card-title">녹지 환경 분석</div>
+      <p class="guide-card-desc">위성 이미지 픽셀을 분석해 나무·공원·녹지가 얼마나 분포하는지 수치로 계산합니다.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -228,8 +228,8 @@ elif st.session_state["search_mode"] == "":
     st.markdown("""
     <div class="guide-card">
       <div class="guide-card-icon">🏢</div>
-      <div class="guide-card-title">주거 지동 밀도 분석 (Density)</div>
-      <p class="guide-card-desc">격자 정렬 구조와 저층 노후 주택 구역, 대규모 아파트 단지 주동 간격의 광학적 기하 특성을 해석하여 정밀 매칭합니다.</p>
+      <div class="guide-card-title">건물 밀도 분석</div>
+      <p class="guide-card-desc">건물이 얼마나 밀집해 있는지 위성 이미지로 파악해, 고밀도/저밀도 지역을 구분합니다.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -237,8 +237,8 @@ elif st.session_state["search_mode"] == "":
     st.markdown("""
     <div class="guide-card">
       <div class="guide-card-icon">🛣️</div>
-      <div class="guide-card-title">토폴로지 접근도 매칭 (Network)</div>
-      <p class="guide-card-desc">다중 역세권 간선도로와 이면도로의 조밀 흐름을 텍스트의 맥락(예: '조용함', '편리함')과 자동 맵핑하여 가치를 검증합니다.</p>
+      <div class="guide-card-title">교통 및 생활 인프라 분석</div>
+      <p class="guide-card-desc">카카오 API를 통해 주변 지하철역·버스정류장·마트·학교 등 생활 인프라 정보를 실시간으로 가져옵니다.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -258,7 +258,7 @@ st.markdown("""
   <span class="sec-badge badge-blue">Cross-District Similarity</span>
 </div>
 <p class="sec-desc">
-  1단계 결과 중 가장 마음에 드는 입지 블록을 클릭해 선택한 뒤, 아래 <b>탐색 기준 지역</b>을 선택하세요.
+  1단계에서 마음에 드는 입지를 선택한 뒤, 아래에서 탐색할 <b>기준 지역</b>을 골라주세요.
   해당 위성 이미지와 시각적으로 가장 유사한 입지를 탐색합니다.
 </p>
 """, unsafe_allow_html=True)
@@ -275,7 +275,7 @@ if st.session_state["search_results"]:
             default_dist_idx = district_labels.index(st.session_state["selected_district_toggle"])
 
         selected_district_label = st.selectbox(
-            "성동구 외 유사 입지를 탐색할 기준 지역 선택",
+            "성동구 외 유사 입지를 비교할 지역 선택",
             options=district_labels,
             index=default_dist_idx,
             key="district_selectbox"
@@ -295,7 +295,7 @@ if st.session_state["search_results"]:
     if btn_recommend:
         district_key = UI_LABEL_TO_DISTRICT[opt_info["label"]]
         try:
-            with st.spinner(f"'{sel_base}' 위성 패턴과 유사한 {opt_info['label']} 입지 탐색 중..."):
+            with st.spinner(f"'{sel_base}' 위성 이미지와 유사한 {opt_info['label']} 입지 탐색 중..."):
                 recommend_candidates = search_step2_api(
                     image_path=sel_result["image_path"],
                     district_key=district_key,
@@ -335,7 +335,7 @@ else:
     st.markdown(
         '<div style="border: 1.5px dashed var(--border-dark); padding: 2rem; border-radius: var(--radius);'
         ' background: var(--bg); text-align: center; color: var(--text-sub); font-size: 0.9rem;">'
-        '🔒 상단의 <b>1단계 자연어 입지 검색</b> 결과가 나타나면, 결과 지역 중 하나를 선택하여 '
+        '🔒 먼저 <b>1단계에서 자연어 입지</b>를 검색하고 결과가 나타나면, 하나를 선택해 주세요.'
         '<b>광진구 자양동 / 송파구 가락·문정동 / 중구 신당·황학동</b> 내 유사 입지를 탐색할 수 있습니다.'
         '</div>',
         unsafe_allow_html=True
@@ -355,7 +355,7 @@ st.markdown("""
 ">
   🛰️ AI-Insight Estate &nbsp;·&nbsp;
   성동구 위성 이미지 기반 부동산 입지 분석 &nbsp;·&nbsp;
-  CLIP + LoRA Fine-tuning &nbsp;·&nbsp;
+  CLIP ViT-L/14 + LoRA &nbsp;·&nbsp;
   VWorld WMTS · Kakao Local API
 </div>
 """, unsafe_allow_html=True)
