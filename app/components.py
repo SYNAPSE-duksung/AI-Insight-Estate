@@ -81,7 +81,7 @@ def render_result_card(r: dict, rc_idx: int, *, selected: bool = False, badge: b
         f'<div class="rcard-coord">📍 {r["lat"]:.4f}°N &nbsp; {r["lon"]:.4f}°E</div>'
         f'{selected_badge}'
         f'</div>'
-        f'<div style="width:300px;height:300px;flex-shrink:0;border-left:1px solid var(--border);">'
+        f'<div style="width:250px;height:250px;flex-shrink:0;border-left:1px solid var(--border);">'
         f'{tile_image_html(r["image_path"], r["label"])}'
         f'</div>'
         f'</div>',
