@@ -59,53 +59,7 @@
  
 ### 전체 파이프라인 구조
 
-```mermaid
-flowchart TD
-    subgraph UI["Streamlit UI (app/)"]
-        A1["STEP 1: 자연어 쿼리 입력"]
-        A2["STEP 2: 결과 선택 + 비교 구역 선택"]
-    end
-
-    subgraph API["FastAPI 백엔드 (api/)"]
-        B1["/search/step1"]
-        B2["/search/step2"]
-    end
-
-    subgraph PIPE["pipeline/"]
-        C1["clip_engine.py\nCLIP 텍스트·이미지 인코딩"]
-        C2["search.py\nFAISS 유사도 검색"]
-        C3["enrich.py\n결과 보강"]
-    end
-
-    subgraph DATA["data/processed/"]
-        D1[("FAISS Index")]
-        D2[("SQLite Metadata")]
-    end
-
-    subgraph EXT["외부 API"]
-        E1["Kakao Local API\n(역지오코딩 · POI)"]
-        E2["Upstage Solar LLM\n(입지 설명 생성)"]
-    end
-
-    A1 -->|텍스트 쿼리| B1
-    A2 -->|이미지 경로 + 구역| B2
-
-    B1 --> C1
-    B2 --> C1
-    C1 -->|벡터 인코딩| C2
-    C2 <--> D1
-    C2 <--> D2
-    C2 -->|raw_results| C3
-
-    C3 -->|픽셀 분석| C3
-    C3 <--> E1
-    C3 <--> E2
-
-    C3 -->|enriched_results| B1
-    C3 -->|enriched_results| B2
-    B1 -->|지도 + 결과 카드| A1
-    B2 -->|지도 + 결과 카드| A2
-```
+<img src="src/systemarchitecture.jpg.png">
 
 ### 간단 구조
 
@@ -114,7 +68,7 @@ flowchart LR
     U["사용자"] --> S["Streamlit UI"]
     S --> F["FastAPI 백엔드"]
     F --> M["CLIP + FAISS\n유사 입지 검색"]
-    M --> E["입지 정보 보강\n(픽셀 분석 · Kakao · Solar LLM)"]
+    M --> E["입지 정보 보강\n(픽셀 분석 · Kakao API· \n Solar LLM API)"]
     E --> S
 ```
 
