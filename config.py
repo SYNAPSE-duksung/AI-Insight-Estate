@@ -77,6 +77,17 @@ SEARCH_OVERSAMPLE_FACTOR = 3
 # 카카오 · Upstage Solar 등 모든 외부 API 호출 공통 타임아웃 (초)
 EXTERNAL_API_TIMEOUT = 3
 
+# reverse_geocode 병렬 워커 수 (결과당 1회 호출 — POI의 결과당 9회와 달리 부하 낮음)
+# 과거 enrich 전체 병렬화 시 Rate Limit 초과 이력 있음 → 보수적으로 설정
+ENRICH_GEOCODE_WORKERS = 5
+
+# Solar LLM(generate_location_text) 병렬 워커 수
+# Upstage API 이므로 Kakao Rate Limit 과 무관하나, 동시 호출 부하를 감안해 제한
+ENRICH_LLM_WORKERS = 3
+
+# Solar LLM 전용 타임아웃 (초) — LLM은 Kakao API보다 응답 시간이 길어 별도 설정
+ENRICH_LLM_TIMEOUT = 15
+
 
 # ──────────────────────────────────────────────────────────────
 # Solar LLM (pipeline/enrich.py — generate_location_text)
