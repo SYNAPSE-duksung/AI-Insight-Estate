@@ -1,7 +1,6 @@
+<img src="src/main_ui.png">
 # AI-Insight Estate 🛰️
 > 위성 이미지 분석 기반 맞춤형 부동산 입지 탐색 서비스
-
-<img src="src/main_ui.png">
 
 ---
 
@@ -59,9 +58,9 @@
  
 ### 전체 파이프라인 구조
 
-<img src="src/systemarchitecture.jpg.png">
+<img src="src/systemarchitecture.jpg">
 
-### 간단 구조
+**간단 구조**
 
 ```mermaid
 flowchart LR
