@@ -20,6 +20,10 @@
     --shadow-lg:   0 8px 30px rgba(0,0,0,0.1);
 }
 
+html {
+    font-size: 80%;
+}
+
 .stApp {
     background-color: var(--bg);
     font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif;

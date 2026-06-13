@@ -57,7 +57,7 @@ st.markdown("""
   <div class="header-eyebrow">🛰️ &nbsp; Satellite Vision · 성동구 위성 이미지 탐색</div>
   <h1 class="header-title">AI-Insight <em>Estate</em></h1>
   <p class="header-desc">
-    원하는 정주 조건의 자연어 명세를 기반으로 성동구 내 최적의 위성 단지를 역탐색합니다.<br>
+    원하는 자연어 명세 조건을 기반으로 성동구 내 최적의 위성 단지를 역탐색합니다.<br>
     선정된 후보지로부터 <b>유사한 공간적 구조와 텍스처를 가진 대안 입지</b>를 순차적으로 확장하여 탐색해 보세요.
   </p>
 </div>
@@ -92,7 +92,7 @@ for idx, query_tag in enumerate(EXAMPLE_QUERIES):
 text_query = st.text_area(
     label="입지 조건 명세 입력",
     label_visibility="collapsed",
-    placeholder="예: 서울숲 가깝고 주변 환경이 정온하며 카페들이 아기자기하게 퍼져 있는 저밀도 주거 구역",
+    placeholder="예: 서울숲 가깝고 주변 환경이 평화로우며 카페들이 아기자기하게 퍼져 있는 저밀도 주거 구역",
     height=90,
     value=st.session_state["query_input_value"],
 )
@@ -133,7 +133,7 @@ if btn_text:
 
 
 # ══════════════════════════════════════════
-# 중단: 입지 분석 및 탐색 대기/결과 카드 (가장 넓은 면적)
+# 1단계 결과 카드 배치 공간
 # ══════════════════════════════════════════
 
 st.markdown("""
