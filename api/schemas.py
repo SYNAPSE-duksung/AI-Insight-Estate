@@ -58,6 +58,7 @@ class LocationResult(BaseModel):
     lon:            float = Field(description="타일 중심 경도")
     image_path:     str   = Field(description="타일 이미지 절대경로 (STEP 2 쿼리 재사용용)")
     similarity:     float = Field(description="CLIP 임베딩 기반 코사인 유사도 [-1, 1]")
+    match_score:    int   = Field(description="결과 집합 내 min-max 정규화 기반 유사 지수 [0, 100] (UI 표시용)")
     label:          str   = Field(description="카카오 reverse geocode 한국어 주소 (실패 시 tile_id)")
     text:           str   = Field(description="Solar LLM 생성 입지 설명문 (실패 시 템플릿 fallback)")
     green_ratio:    float = Field(description="픽셀 기반 녹지율 [0, 1]")
