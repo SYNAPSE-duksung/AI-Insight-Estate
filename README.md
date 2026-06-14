@@ -73,16 +73,36 @@ flowchart LR
 
 ### 기술 스택
 
-| 영역 | 기술 |
-|---|---|
-| 프론트엔드 | Streamlit |
-| 백엔드 | FastAPI, Uvicorn |
-| ML / 모델 | PyTorch, Transformers (CLIP ViT-L/14), LoRA 파인튜닝 |
-| 벡터 검색 | FAISS |
-| 메타데이터 | SQLite |
-| 외부 API | Kakao Local API (역지오코딩&인프라 통계), Upstage Solar LLM (입지 설명 생성), V-World (위성 타일 수집) |
-| 데이터 처리 | NumPy, Pandas, Pillow |
-| 협업 | GitHub, Notion |
+**Web & Backend**
+
+![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![Uvicorn](https://img.shields.io/badge/Uvicorn-499248?style=for-the-badge)
+
+**AI / ML & Vector DB**
+
+![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)
+![Transformers](https://img.shields.io/badge/Transformers_CLIP-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black)
+![FAISS](https://img.shields.io/badge/FAISS-00599C?style=for-the-badge)
+
+**Data & Database**
+
+![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
+![NumPy](https://img.shields.io/badge/NumPy-013243?style=for-the-badge&logo=numpy&logoColor=white)
+![Pandas](https://img.shields.io/badge/Pandas-150458?style=for-the-badge&logo=pandas&logoColor=white)
+![Pillow](https://img.shields.io/badge/Pillow-111111?style=for-the-badge&logo=python&logoColor=white)
+
+**External APIs**
+
+![Upstage Solar LLM](https://img.shields.io/badge/Upstage_Solar_LLM-5A29E5?style=for-the-badge)
+![Kakao Local API](https://img.shields.io/badge/Kakao_Local_API-FFCD00?style=for-the-badge&logo=kakao&logoColor=black)
+![V-World](https://img.shields.io/badge/V_World-0D47A1?style=for-the-badge)
+
+**Management & Collaboration**
+
+![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)
+![Notion](https://img.shields.io/badge/Notion-000000?style=for-the-badge&logo=notion&logoColor=white)
+
 
 ---
  
