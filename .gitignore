@@ -4,6 +4,8 @@
 ### AI Insight Estate project
 */raw/tiles
 */raw/search_tiles
+_tmp_*.zip
+*.zip
 .claude/
 # checkpoints/*
 # !checkpoints/.gitkeep
