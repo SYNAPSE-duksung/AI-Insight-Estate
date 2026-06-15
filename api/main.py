@@ -101,10 +101,11 @@ app.add_middleware(
 # ──────────────────────────────────────────────────────────────
 
 def _to_response(
-    raw_results:    list[dict],
+    raw_results:     list[dict],
     *,
-    address_prefix: str | None = None,
-    target_count:   int | None = None,
+    address_prefix:  str | None = None,
+    target_count:    int | None = None,
+    similarity_kind: str = "text_image",
 ) -> SearchResponse:
     """
     search_step1() / search_step2() raw 결과를
@@ -112,11 +113,15 @@ def _to_response(
 
     address_prefix / target_count 는 STEP 1 행정구역 필터링·백필에만 사용되며
     STEP 2 호출 시에는 전달하지 않습니다(다른 구역을 의도적으로 검색하므로).
+
+    similarity_kind: match_score 캘리브레이션 범위 선택.
+        "text_image"(STEP1, 기본값) | "image_image"(STEP2)
     """
     enriched = enrich_results(
         raw_results,
         address_prefix=address_prefix,
         target_count=target_count,
+        similarity_kind=similarity_kind,
     )
     return SearchResponse(
         results=[LocationResult(**r) for r in enriched]
@@ -188,6 +193,7 @@ async def step2_search(req: Step2Request):
                 raw_results,
                 address_prefix=address_prefix,
                 target_count=req.top_k,
+                similarity_kind="image_image",
             ),
         )
     except FileNotFoundError as e:

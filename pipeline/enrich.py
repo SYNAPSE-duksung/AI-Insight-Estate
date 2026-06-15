@@ -345,19 +345,54 @@ def generate_location_text(
         return _stub_text(address, green_ratio, building_ratio, poi, similarity)
 
 
+# CLIP 코사인 유사도 → match_score(%) 캘리브레이션 범위.
+# 모달리티 갭 특성상 텍스트-이미지(STEP1)와 이미지-이미지(STEP2)는
+# 코사인 유사도의 절대 분포 자체가 크게 다르므로(STEP1 ~0.15~0.30,
+# STEP2 ~0.6~0.95) 캘리브레이션 범위를 분리합니다.
+# 결과 집합별 min-max가 아닌 고정 범위로 선형 변환하는 이유:
+# 집합별 min-max를 쓰면 Top5에 든 "괜찮은" 결과도 최하위라는 이유만으로
+# 0%로 표시되어 "추천 결과인데 0% 일치"라는 모순이 생김.
+_SCORE_RANGES = {
+    "text_image":  (0.15, 0.30),   # STEP1: 자연어 ↔ 이미지
+    "image_image": (0.60, 0.95),   # STEP2: 이미지 ↔ 이미지
+}
+
+
+def _add_match_scores(enriched: list[dict], similarity_kind: str) -> None:
+    """
+    유사도(similarity)를 similarity_kind에 맞는 고정 범위 기준으로
+    선형 변환해 match_score(0~100)로 변환합니다.
+
+    쿼리/결과 집합에 관계없이 같은 유사도는 같은 match_score를 갖도록 하여,
+    "Top5라도 절대적으로 낮은 유사도면 낮게 표시"되는 일관성을 유지합니다.
+    (랭킹/정렬에는 영향 없음 — similarity 원본값은 그대로 유지)
+    """
+    lo, hi = _SCORE_RANGES[similarity_kind]
+    span   = hi - lo
+
+    for item in enriched:
+        scaled = (item["similarity"] - lo) / span
+        item["match_score"] = round(max(0.0, min(1.0, scaled)) * 100)
+
+
 # ──────────────────────────────────────────────────────────────
 # 4. 통합 — enrich_results()
 # ──────────────────────────────────────────────────────────────
 
 def enrich_results(
-    raw_results:    list[dict],
+    raw_results:     list[dict],
     *,
-    address_prefix: str | None = None,
-    target_count:   int | None = None,
+    address_prefix:  str | None = None,
+    target_count:    int | None = None,
+    similarity_kind: str = "text_image",
 ) -> list[dict]:
     """
     search_step1() / search_step2() 의 raw 결과 리스트를 받아
     픽셀 분석 · 카카오 API · Solar LLM 정보를 추가한 enriched 결과를 반환합니다.
+
+    similarity_kind: match_score 캘리브레이션 범위 선택.
+        "text_image"  → STEP1 (자연어 ↔ 이미지, 기본값)
+        "image_image" → STEP2 (이미지 ↔ 이미지)
 
     처리 순서 (결과 1건당):
         1. reverse_geocode(lat, lon)
@@ -496,6 +531,8 @@ def enrich_results(
     if address_prefix:
         for i, item in enumerate(enriched, start=1):
             item["rank"] = i
+
+    _add_match_scores(enriched, similarity_kind)
 
     return enriched
 

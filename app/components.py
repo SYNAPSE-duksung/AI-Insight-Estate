@@ -40,7 +40,7 @@ def make_map(results):
             popup=folium.Popup(
                 f"<b style='color:{c}'>#{r['rank']} {r['label']}</b><br>"
                 f"<small>{r['text']}</small><br>"
-                f"<small>유사도 {r['similarity']:.3f}</small>",
+                f"<small>유사 지수 {r['match_score']}%</small>",
                 max_width=200,
             ),
             tooltip=f"#{r['rank']} {r['label']}",
@@ -73,7 +73,7 @@ def render_result_card(r: dict, rc_idx: int, *, selected: bool = False, badge: b
         f'<div><div class="rcard-rank {RANK_CLS[rc_idx]}">{RANK_SYM[rc_idx]}</div>'
         f'<div class="rcard-lbl">{r["label"]}</div></div>'
         f'<div style="text-align:right">'
-        f'<div class="rcard-sim">{int(r["similarity"]*100)}%</div>'
+        f'<div class="rcard-sim">{r["match_score"]}%</div>'
         f'<div class="rcard-lbl">유사 지수</div></div></div>'
         f'<div class="rcard-text">{r["text"]}</div>'
         f'{sbar("숲세권 수목밀도", r["green_ratio"], "#2A6B4F")}'
