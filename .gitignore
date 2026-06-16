@@ -6,6 +6,7 @@
 */raw/search_tiles
 _tmp_*.zip
 *.zip
+*.part
 .claude/
 # checkpoints/*
 # !checkpoints/.gitkeep
