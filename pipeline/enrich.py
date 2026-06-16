@@ -20,7 +20,7 @@ search.py 의 raw 검색 결과에 픽셀 분석, Kakao API, Solar LLM 정보를
 from __future__ import annotations
 
 import os
-import time  # api 호출 레이턴시 체크
+# import time  # [레이턴시 체크] 복구 시 주석 해제
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -35,6 +35,9 @@ from config import (
     BUILDING_RATIO_HIGH_THRESHOLD,
     BUILDING_RATIO_MID_THRESHOLD,
     BUILDING_SATURATION_MAX,
+    ENRICH_GEOCODE_WORKERS,
+    ENRICH_LLM_TIMEOUT,
+    ENRICH_LLM_WORKERS,
     EXTERNAL_API_TIMEOUT,
     GREEN_EXGR_THRESHOLD,
     GREEN_RATIO_HIGH_THRESHOLD,
@@ -174,7 +177,8 @@ def fetch_poi_summary(lat: float, lon: float) -> dict:
     _TARGETS = POI_CATEGORY_TARGETS
 
     def _fetch_count(category_code: str, radius: int) -> int:
-        _t0 = time.perf_counter()  # api 호출 레이턴시 체크
+        # [레이턴시 체크] 복구 시 아래 2줄 + finally 블록 주석 해제
+        # _t0 = time.perf_counter()
         try:
             resp = requests.get(
                 base_url,
@@ -193,8 +197,8 @@ def fetch_poi_summary(lat: float, lon: float) -> dict:
         except Exception as e:
             print(f"[enrich] fetch_poi({category_code}) 실패: {e}")
             return 0
-        finally:
-            print(f"[enrich] fetch_poi({category_code}) 소요시간: {time.perf_counter() - _t0:.3f}s")  # api 호출 레이턴시 체크
+        # finally:
+        #     print(f"[enrich] fetch_poi({category_code}) 소요시간: {time.perf_counter() - _t0:.3f}s")
 
     with ThreadPoolExecutor(max_workers=len(_TARGETS)) as executor:
         counts = executor.map(lambda t: _fetch_count(t[0], t[1]), _TARGETS)
@@ -332,7 +336,7 @@ def generate_location_text(
                 "max_tokens":  SOLAR_MAX_TOKENS,
                 "temperature": SOLAR_TEMPERATURE,
             },
-            timeout=_REQUEST_TIMEOUT,
+            timeout=ENRICH_LLM_TIMEOUT,
         )
         resp.raise_for_status()
         return resp.json()["choices"][0]["message"]["content"].strip()
@@ -342,31 +346,31 @@ def generate_location_text(
         return _stub_text(address, green_ratio, building_ratio, poi, similarity)
 
 
-# CLIP 코사인 유사도 → match_score(%) 캘리브레이션 범위.
-# 모달리티 갭 특성상 텍스트-이미지(STEP1)와 이미지-이미지(STEP2)는
-# 코사인 유사도의 절대 분포 자체가 크게 다르므로(STEP1 ~0.15~0.30,
-# STEP2 ~0.6~0.95) 캘리브레이션 범위를 분리합니다.
-# 결과 집합별 min-max가 아닌 고정 범위로 선형 변환하는 이유:
-# 집합별 min-max를 쓰면 Top5에 든 "괜찮은" 결과도 최하위라는 이유만으로
-# 0%로 표시되어 "추천 결과인데 0% 일치"라는 모순이 생김.
+# CLIP 코사인 유사도 → match_score(%) 캘리브레이션.
+# STEP1(text_image)은 모달리티 갭으로 유사도 절대값이 낮게 형성되므로(~0.15~0.30)
+# 고정 범위 선형 변환으로 체감 점수를 보정합니다.
+# STEP2(image_image)는 이미지-이미지 유사도라 절대값 자체가 높고 직관적이므로
+# 캘리브레이션 없이 similarity 원본값(×100)을 그대로 표시합니다.
 _SCORE_RANGES = {
-    "text_image":  (0.15, 0.30),   # STEP1: 자연어 ↔ 이미지
-    "image_image": (0.60, 0.95),   # STEP2: 이미지 ↔ 이미지
+    "text_image": (0.15, 0.30),   # STEP1: 자연어 ↔ 이미지 (보정 필요)
 }
 
 
 def _add_match_scores(enriched: list[dict], similarity_kind: str) -> None:
     """
-    유사도(similarity)를 similarity_kind에 맞는 고정 범위 기준으로
-    선형 변환해 match_score(0~100)로 변환합니다.
+    유사도(similarity)를 match_score(0~100 정수)로 변환합니다.
 
-    쿼리/결과 집합에 관계없이 같은 유사도는 같은 match_score를 갖도록 하여,
-    "Top5라도 절대적으로 낮은 유사도면 낮게 표시"되는 일관성을 유지합니다.
+    text_image(STEP1): 고정 범위 (0.15~0.30) 선형 변환 — 모달리티 갭 보정.
+    image_image(STEP2): similarity 원본값 × 100 — 캘리브레이션 없이 그대로 표시.
     (랭킹/정렬에는 영향 없음 — similarity 원본값은 그대로 유지)
     """
+    if similarity_kind == "image_image":
+        for item in enriched:
+            item["match_score"] = round(max(0.0, min(1.0, item["similarity"])) * 100)
+        return
+
     lo, hi = _SCORE_RANGES[similarity_kind]
     span   = hi - lo
-
     for item in enriched:
         scaled = (item["similarity"] - lo) / span
         item["match_score"] = round(max(0.0, min(1.0, scaled)) * 100)
@@ -446,59 +450,88 @@ def enrich_results(
     각 단계가 실패해도 나머지 단계는 계속 진행됩니다.
     (카카오 API 키 없음 → label=tile_id, poi=0 → Solar LLM fallback 문장)
     """
-    enriched = []
+    if not raw_results:
+        return []
 
-    for r in raw_results:
-        if target_count is not None and len(enriched) >= target_count:
-            break   # 목표 개수를 채웠으면 나머지 후보는 처리하지 않음
+    # ── Phase 1: reverse_geocode 병렬 ──────────────────────────────────────────
+    # 결과당 1회 호출이므로 ENRICH_GEOCODE_WORKERS 범위에서 병렬화해도 안전.
+    # [레이턴시 체크] 복구 시 아래 _t0 라인과 print 라인 주석 해제 + import time 복구
+    # _t0 = time.perf_counter()
+    n_geo = min(len(raw_results), ENRICH_GEOCODE_WORKERS)
+    with ThreadPoolExecutor(max_workers=n_geo) as ex:
+        addresses = list(ex.map(lambda r: reverse_geocode(r["lat"], r["lon"]), raw_results))
+    # print(f"[enrich] geocode 전체: {time.perf_counter() - _t0:.3f}s "
+    #       f"({len(raw_results)}건, workers={n_geo})")
 
-        image_path  = r["image_path"]
-        lat, lon    = r["lat"], r["lon"]
-        similarity  = r["similarity"]
-
-        # ── 1. 카카오 reverse geocode → 주소 (행정구역 필터링 선행) ──
-        # 카카오 주소는 "서울 성동구 옥수동 490-6" / "서울특별시 성동구 왕십리로 80"
-        # 형식으로, 구 이름이 맨 앞이 아니라 시/도 다음 토큰으로 옵니다.
-        # 따라서 문자열 접두사가 아니라 공백으로 분리한 토큰 단위로 비교합니다.
-        _t0 = time.perf_counter()  # api 호출 레이턴시 체크
-        address = reverse_geocode(lat, lon)
-        print(f"[enrich] reverse_geocode 소요시간: {time.perf_counter() - _t0:.3f}s")  # api 호출 레이턴시 체크
-        if address_prefix and address and address_prefix not in address.split():
+    # ── Phase 2: address_prefix 필터링 + 백필 ──────────────────────────────────
+    candidates: list[tuple[dict, str]] = []
+    for r, addr in zip(raw_results, addresses):
+        if target_count is not None and len(candidates) >= target_count:
+            break
+        if address_prefix and addr and address_prefix not in addr.split():
             print(
-                f"[enrich] 행정구역 불일치로 제외: {r['tile_id']} → '{address}' "
+                f"[enrich] 행정구역 불일치로 제외: {r['tile_id']} → '{addr}' "
                 f"(기대 행정구역 '{address_prefix}') — 다음 순위 후보로 대체"
             )
             continue
-        label = address if address else r["tile_id"]   # 조회 실패 시 tile_id 표시
+        candidates.append((r, addr))
 
-        # ── 2. 픽셀 분석 ──────────────────────────────────────
-        green_ratio, building_ratio = compute_ratios(image_path)
+    if not candidates:
+        return []
 
-        # ── 3. 카카오 POI 통계 ────────────────────────────────
-        _t0 = time.perf_counter()  # api 호출 레이턴시 체크
-        poi = fetch_poi_summary(lat, lon)
-        print(f"[enrich] fetch_poi_summary 소요시간: {time.perf_counter() - _t0:.3f}s")  # api 호출 레이턴시 체크
+    # ── Phase 3: 픽셀 분석 + POI 순차 ─────────────────────────────────────────
+    # fetch_poi_summary 는 내부에서 카테고리 9건을 이미 병렬 호출한다.
+    # 결과 간 병렬화 시 9×N 동시 Kakao 요청 → Rate Limit 초과 이력 있음.
+    # Lock 방식은 대기 시간 누적으로 오히려 느려지는 역효과 확인 → 단순 순차 유지.
+    partial: list[dict] = []
+    for r, addr in candidates:
+        green_ratio, building_ratio = compute_ratios(r["image_path"])
 
-        # ── 4. Solar LLM 입지 설명문 생성 ────────────────────
-        _t0 = time.perf_counter()  # api 호출 레이턴시 체크
-        text = generate_location_text(
-            address        = address,
-            green_ratio    = green_ratio,
-            building_ratio = building_ratio,
-            poi            = poi,
-            similarity     = similarity,
-        )
-        print(f"[enrich] generate_location_text 소요시간: {time.perf_counter() - _t0:.3f}s")  # api 호출 레이턴시 체크
+        # [레이턴시 체크] 복구 시 _t0 라인과 print 라인 주석 해제 + import time 복구
+        # _t0 = time.perf_counter()
+        poi = fetch_poi_summary(r["lat"], r["lon"])
+        # print(f"[enrich] fetch_poi_summary 소요시간: {time.perf_counter() - _t0:.3f}s")
 
-        enriched.append({
-            **r,                            # rank, tile_id, lat, lon, image_path, similarity 보존
-            "label":          label,
-            "text":           text,
-            "green_ratio":    green_ratio,
-            "building_ratio": building_ratio,
+        partial.append({
+            "_r":        r,
+            "_addr":     addr,
+            "_green":    green_ratio,
+            "_building": building_ratio,
+            "_poi":      poi,
         })
 
-    # 필터링/백필로 원본 FAISS 순위에 빈자리가 생길 수 있으므로 최종 채택 순서 기준 1..N 재부여
+    # ── Phase 4: Solar LLM 병렬 생성 ───────────────────────────────────────────
+    # Upstage API → Kakao Rate Limit 무관. ENRICH_LLM_WORKERS(=3) 로 동시 호출 제어.
+    # POI 완료 후 전체를 한꺼번에 병렬 실행하므로 Lock 대기 누적 문제 없음.
+    def _gen_text(p: dict) -> str:
+        return generate_location_text(
+            address        = p["_addr"],
+            green_ratio    = p["_green"],
+            building_ratio = p["_building"],
+            poi            = p["_poi"],
+            similarity     = p["_r"]["similarity"],
+        )
+
+    n_llm = min(len(partial), ENRICH_LLM_WORKERS)
+    # [레이턴시 체크] 복구 시 _t_llm 라인과 print 라인 주석 해제 + import time 복구
+    # _t_llm = time.perf_counter()
+    with ThreadPoolExecutor(max_workers=n_llm) as ex:
+        texts = list(ex.map(_gen_text, partial))
+    # print(f"[enrich] Phase4 LLM 전체: {time.perf_counter()-_t_llm:.3f}s ({len(partial)}건, workers={n_llm})")
+
+    # ── 조합 ───────────────────────────────────────────────────────────────────
+    enriched = []
+    for p, text in zip(partial, texts):
+        r = p["_r"]
+        enriched.append({
+            **r,
+            "label":          p["_addr"] if p["_addr"] else r["tile_id"],
+            "text":           text,
+            "green_ratio":    p["_green"],
+            "building_ratio": p["_building"],
+        })
+
+    # 필터링/백필로 원본 FAISS 순위에 빈자리가 생길 수 있으므로 최종 채택 순서 기준 재부여
     if address_prefix:
         for i, item in enumerate(enriched, start=1):
             item["rank"] = i

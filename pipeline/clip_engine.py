@@ -33,6 +33,7 @@ from config import (
     CLIP_FALLBACK_MODEL_PATH,
     CLIP_TEXT_MAX_LENGTH,
 )
+from download_assets import ensure_assets
 
 # ──────────────────────────────────────────────────────────────
 # 설정
@@ -73,6 +74,8 @@ class CLIPEngine:
             3. merge_and_unload()로 LoRA를 베이스에 병합
                → 일반 CLIPModel로 변환되어 이후 코드 변경 불필요
         """
+        ensure_assets()  # 누락된 가중치(checkpoints/)를 Google Drive에서 자동 다운로드
+
         base_exists  = os.path.exists(_BASE_MODEL_PATH)
         lora_exists  = os.path.exists(_LORA_ADAPTER_PATH)
  

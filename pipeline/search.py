@@ -53,6 +53,7 @@ from config import (
     SEONGDONG_DISTRICT_KEY,
     UI_LABEL_TO_DISTRICT,
 )
+from download_assets import ensure_assets
 
 # ──────────────────────────────────────────────────────────────
 # 경로 설정
@@ -83,6 +84,8 @@ def _load_index(district_key: str) -> tuple[faiss.Index, list[str]]:
     이미 로드된 경우 캐시를 반환합니다.
     """
     if district_key not in _indices:
+        ensure_assets()  # 누락된 FAISS 인덱스 · 메타데이터 · 위성 이미지를 자동 다운로드
+
         index_path = _DB_DIR / f"faiss_{district_key}.index"
         ids_path   = _DB_DIR / f"tile_ids_{district_key}.npy"
 
