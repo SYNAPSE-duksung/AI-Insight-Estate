@@ -20,7 +20,7 @@ search.py 의 raw 검색 결과에 픽셀 분석, Kakao API, Solar LLM 정보를
 from __future__ import annotations
 
 import os
-import time  # api 호출 레이턴시 체크
+# import time  # [레이턴시 체크] 복구 시 주석 해제
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -177,7 +177,8 @@ def fetch_poi_summary(lat: float, lon: float) -> dict:
     _TARGETS = POI_CATEGORY_TARGETS
 
     def _fetch_count(category_code: str, radius: int) -> int:
-        _t0 = time.perf_counter()  # api 호출 레이턴시 체크
+        # [레이턴시 체크] 복구 시 아래 2줄 + finally 블록 주석 해제
+        # _t0 = time.perf_counter()
         try:
             resp = requests.get(
                 base_url,
@@ -196,8 +197,8 @@ def fetch_poi_summary(lat: float, lon: float) -> dict:
         except Exception as e:
             print(f"[enrich] fetch_poi({category_code}) 실패: {e}")
             return 0
-        finally:
-            print(f"[enrich] fetch_poi({category_code}) 소요시간: {time.perf_counter() - _t0:.3f}s")  # api 호출 레이턴시 체크
+        # finally:
+        #     print(f"[enrich] fetch_poi({category_code}) 소요시간: {time.perf_counter() - _t0:.3f}s")
 
     with ThreadPoolExecutor(max_workers=len(_TARGETS)) as executor:
         counts = executor.map(lambda t: _fetch_count(t[0], t[1]), _TARGETS)
@@ -345,31 +346,31 @@ def generate_location_text(
         return _stub_text(address, green_ratio, building_ratio, poi, similarity)
 
 
-# CLIP 코사인 유사도 → match_score(%) 캘리브레이션 범위.
-# 모달리티 갭 특성상 텍스트-이미지(STEP1)와 이미지-이미지(STEP2)는
-# 코사인 유사도의 절대 분포 자체가 크게 다르므로(STEP1 ~0.15~0.30,
-# STEP2 ~0.6~0.95) 캘리브레이션 범위를 분리합니다.
-# 결과 집합별 min-max가 아닌 고정 범위로 선형 변환하는 이유:
-# 집합별 min-max를 쓰면 Top5에 든 "괜찮은" 결과도 최하위라는 이유만으로
-# 0%로 표시되어 "추천 결과인데 0% 일치"라는 모순이 생김.
+# CLIP 코사인 유사도 → match_score(%) 캘리브레이션.
+# STEP1(text_image)은 모달리티 갭으로 유사도 절대값이 낮게 형성되므로(~0.15~0.30)
+# 고정 범위 선형 변환으로 체감 점수를 보정합니다.
+# STEP2(image_image)는 이미지-이미지 유사도라 절대값 자체가 높고 직관적이므로
+# 캘리브레이션 없이 similarity 원본값(×100)을 그대로 표시합니다.
 _SCORE_RANGES = {
-    "text_image":  (0.15, 0.30),   # STEP1: 자연어 ↔ 이미지
-    "image_image": (0.60, 0.95),   # STEP2: 이미지 ↔ 이미지
+    "text_image": (0.15, 0.30),   # STEP1: 자연어 ↔ 이미지 (보정 필요)
 }
 
 
 def _add_match_scores(enriched: list[dict], similarity_kind: str) -> None:
     """
-    유사도(similarity)를 similarity_kind에 맞는 고정 범위 기준으로
-    선형 변환해 match_score(0~100)로 변환합니다.
+    유사도(similarity)를 match_score(0~100 정수)로 변환합니다.
 
-    쿼리/결과 집합에 관계없이 같은 유사도는 같은 match_score를 갖도록 하여,
-    "Top5라도 절대적으로 낮은 유사도면 낮게 표시"되는 일관성을 유지합니다.
+    text_image(STEP1): 고정 범위 (0.15~0.30) 선형 변환 — 모달리티 갭 보정.
+    image_image(STEP2): similarity 원본값 × 100 — 캘리브레이션 없이 그대로 표시.
     (랭킹/정렬에는 영향 없음 — similarity 원본값은 그대로 유지)
     """
+    if similarity_kind == "image_image":
+        for item in enriched:
+            item["match_score"] = round(max(0.0, min(1.0, item["similarity"])) * 100)
+        return
+
     lo, hi = _SCORE_RANGES[similarity_kind]
     span   = hi - lo
-
     for item in enriched:
         scaled = (item["similarity"] - lo) / span
         item["match_score"] = round(max(0.0, min(1.0, scaled)) * 100)
@@ -453,13 +454,14 @@ def enrich_results(
         return []
 
     # ── Phase 1: reverse_geocode 병렬 ──────────────────────────────────────────
-    # 결과당 1회 호출이므로 ENRICH_GEOCODE_WORKERS(=3) 범위에서 병렬화해도 안전.
-    _t0 = time.perf_counter()
+    # 결과당 1회 호출이므로 ENRICH_GEOCODE_WORKERS 범위에서 병렬화해도 안전.
+    # [레이턴시 체크] 복구 시 아래 _t0 라인과 print 라인 주석 해제 + import time 복구
+    # _t0 = time.perf_counter()
     n_geo = min(len(raw_results), ENRICH_GEOCODE_WORKERS)
     with ThreadPoolExecutor(max_workers=n_geo) as ex:
         addresses = list(ex.map(lambda r: reverse_geocode(r["lat"], r["lon"]), raw_results))
-    print(f"[enrich] geocode 전체: {time.perf_counter() - _t0:.3f}s "
-          f"({len(raw_results)}건, workers={n_geo})")
+    # print(f"[enrich] geocode 전체: {time.perf_counter() - _t0:.3f}s "
+    #       f"({len(raw_results)}건, workers={n_geo})")
 
     # ── Phase 2: address_prefix 필터링 + 백필 ──────────────────────────────────
     candidates: list[tuple[dict, str]] = []
@@ -485,9 +487,10 @@ def enrich_results(
     for r, addr in candidates:
         green_ratio, building_ratio = compute_ratios(r["image_path"])
 
-        _t0 = time.perf_counter()
+        # [레이턴시 체크] 복구 시 _t0 라인과 print 라인 주석 해제 + import time 복구
+        # _t0 = time.perf_counter()
         poi = fetch_poi_summary(r["lat"], r["lon"])
-        print(f"[enrich] fetch_poi_summary 소요시간: {time.perf_counter() - _t0:.3f}s")
+        # print(f"[enrich] fetch_poi_summary 소요시간: {time.perf_counter() - _t0:.3f}s")
 
         partial.append({
             "_r":        r,
@@ -510,10 +513,11 @@ def enrich_results(
         )
 
     n_llm = min(len(partial), ENRICH_LLM_WORKERS)
-    _t_llm = time.perf_counter()
+    # [레이턴시 체크] 복구 시 _t_llm 라인과 print 라인 주석 해제 + import time 복구
+    # _t_llm = time.perf_counter()
     with ThreadPoolExecutor(max_workers=n_llm) as ex:
         texts = list(ex.map(_gen_text, partial))
-    print(f"[enrich] Phase4 LLM 전체: {time.perf_counter()-_t_llm:.3f}s ({len(partial)}건, workers={n_llm})")
+    # print(f"[enrich] Phase4 LLM 전체: {time.perf_counter()-_t_llm:.3f}s ({len(partial)}건, workers={n_llm})")
 
     # ── 조합 ───────────────────────────────────────────────────────────────────
     enriched = []

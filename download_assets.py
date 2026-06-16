@@ -20,16 +20,6 @@ import gdown
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 
-# ──────────────────────────────────────────────────────────────
-# 자산 매니페스트
-# ──────────────────────────────────────────────────────────────
-# drive_id : Google Drive 공유 링크의 파일 ID
-#            (https://drive.google.com/file/d/<여기>/view)
-# dest_dir : 압축 해제 결과가 위치할 디렉터리 (PROJECT_ROOT 기준)
-# check    : 다운로드 여부 판단용 파일/디렉터리 (이미 존재하면 스킵)
-#
-# 압축 시 폴더 자체가 아니라 "폴더 내부 내용물"을 zip 최상위에 두어야
-# dest_dir 에 바로 풀렸을 때 중첩 폴더가 생기지 않습니다.
 ASSETS: list[dict] = [
     {
         "name": "clip_finetuned_v1",
@@ -84,8 +74,6 @@ def _download_and_extract(asset: dict) -> None:
     with zipfile.ZipFile(zip_path) as zf:
         zf.extractall(extract_dir)
 
-    # zip이 "내용물만" 압축됐든 "최상위 폴더 1개"를 포함해 압축됐든
-    # 결과가 항상 dest_dir 바로 아래에 위치하도록 정리합니다.
     entries = list(extract_dir.iterdir())
     src_dir = entries[0] if (len(entries) == 1 and entries[0].is_dir()) else extract_dir
 
