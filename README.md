@@ -30,7 +30,7 @@
  
 | 항목 | 버전 |
 |---|---|
-| Python | 3.12 |
+| Python | 3.12(필수) |
 | CUDA | 12.1 (GPU 추론용, CPU도 동작) |
 | OS | Windows 10/11, Ubuntu 20.04 이상 |
  
@@ -49,9 +49,54 @@
  
 ## 3. 설치 및 실행 방법
 
-[ -- 기입 예정 -- ]
+#### 1. 가상환경 생성 & 의존성 설치
 
- 
+```
+py -3.12 -m venv venv
+source venv/Scripts/activate
+pip install -r requirements_loose.txt  # cpu 버전 torch 사용
+```
+
+#### 2. `.env` 파일 생성
+
+프로젝트 루트에 .env 생성
+
+```
+KAKAO_API=YOUR_KAKAO_REST_API_KEY
+UPSTAGE_API=YOUR_Upstage_Solar_API_KEY
+```
+
+*V-World API는 Streamlit 파이프라인 실행 시 필요 없음*
+
+#### 3. 서버 실행
+
+```
+# 터미널 1 - FastAPI 백엔드
+uvicorn api.main:app --port 8000 --reload
+
+# 터미널 2 - Streamlit UI
+streamlit run app/app.py
+```
+
+*서버 첫 실행 과정에서 필요한 모델 가중치와 데이터가 자동으로 다운로드됨(gdown)*
+*clip_finetuned_v1이 1.6GB라 다운로드 소요 시간이 길 수 있음*
+
+<br>
+
+*참고: 다운로드 되는 항목들과 구글드라이브 링크*
+
+* [구글 드라이브 링크](https://drive.google.com/drive/folders/1DcbaSxomCUIQmODAvgVzwDrNUc6HvTpB?usp=sharing)
+
+| 자산 | 배치 경로 | 용량 | 설명 |
+|---|---|---|---|
+| `clip_finetuned_v1.zip` | `checkpoints/clip_finetuned_v1/` | ~1.6GB | CLIP ViT-L/14 파인튜닝 전체 가중치 (LoRA 베이스) |
+| `clip_finetuned_v2.zip` | `checkpoints/clip_finetuned_v2/` | ~8.4MB | LoRA 어댑터 |
+| `search_target_v2.zip` | `data/processed/search_target_v2/` | ~19MB | FAISS 인덱스 · SQLite 메타데이터 · tile_ids |
+| `raw_tiles_seongdong.zip` | `data/raw/tiles/` | ~37MB | 성동구 위성 타일 이미지 (STEP 1 검색 대상) |
+| `raw_search_tiles.zip` | `data/raw/search_tiles/` | ~21MB | 광진구·송파구·중구 위성 타일 이미지 (STEP 2 확장 탐색) |
+
+> 위 파일들은 `git clone` 후 첫 실행 시 `download_assets.py`를 통해 Google Drive에서 자동으로 다운로드됩니다.
+
 ---
  
 ## 4. 시스템 아키텍처 / 데이터 파이프라인
