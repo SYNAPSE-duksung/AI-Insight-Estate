@@ -1,6 +1,25 @@
 # Created by https://www.toptal.com/developers/gitignore/api/python,venv,windows,visualstudiocode,macos,linux
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,venv,windows,visualstudiocode,macos,linux
 
+### AI Insight Estate project
+*/raw/tiles
+*/raw/search_tiles
+_tmp_*.zip
+*.zip
+*.part
+.claude/
+# checkpoints/*
+# !checkpoints/.gitkeep
+checkpoints/clip_finetuned/*
+!checkpoints/clip_finetuned/.gitkeep
+checkpoints/clip_finetuned_v1/*
+!checkpoints/clip_finetuned_v1/.gitkeep
+checkpoints/clip_finetuned_v2/*
+!checkpoints/clip_finetuned_v2/.gitkeep
+data/processed/search_target_v2/*
+!data/processed/search_target_v2/.keep
+data/processed/search_target_v1/*
+
 ### Linux ###
 *~
 
