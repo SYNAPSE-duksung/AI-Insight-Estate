@@ -78,7 +78,7 @@ uvicorn api.main:app --port 8000 --reload
 streamlit run app/app.py
 ```
 
-*서버 첫 실행 과정에서 필요한 모델 가중치와 데이터가 자동으로 다운로드됨(gdown)*
+*서버 첫 실행 과정에서 필요한 모델 가중치와 데이터가 자동으로 다운로드됨(gdown)*<br>
 *clip_finetuned_v1이 1.6GB라 다운로드 소요 시간이 길 수 있음*
 
 <br>
@@ -98,8 +98,27 @@ streamlit run app/app.py
 > 위 파일들은 `git clone` 후 첫 실행 시 `download_assets.py`를 통해 Google Drive에서 자동으로 다운로드됩니다.
 
 ---
+
+## 4. 프로젝트 구조
+
+```
+Sat-Prop-CLIP/
+├── api/                # FastAPI 백엔드 (엔드포인트 · 스키마)
+├── app/                # Streamlit 프론트엔드 (UI · 지도 · API 클라이언트)
+├── pipeline/           # ML 파이프라인 (CLIP 인코딩 · FAISS 검색 · 결과 보강)
+├── checkpoints/        # 파인튜닝 모델 가중치 (v1 전체 · v2 LoRA 어댑터)
+├── data/
+│   ├── raw/            # 수집된 위성 타일 이미지
+│   └── processed/      # FAISS 인덱스 · SQLite 메타데이터
+├── models/             # 파인튜닝 노트북 파일 (CLIP · LoRA)
+├── config.py           # 전역 설정
+├── .env                # API 키 (직접 생성 필요, .gitignore 적용)
+└── requirements.txt
+```
+
+---
  
-## 4. 시스템 아키텍처 / 데이터 파이프라인
+## 5. 시스템 아키텍처 / 데이터 파이프라인
  
 ### 전체 파이프라인 구조
 
@@ -151,7 +170,7 @@ flowchart LR
 
 ---
  
-## 5. 팀원 정보 및 역할 분담
+## 6. 팀원 정보 및 역할 분담
  
 | 이름 | 학번 | 주요 담당 |
 |---|---|---|
