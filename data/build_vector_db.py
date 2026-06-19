@@ -71,9 +71,9 @@ REGION_CONFIGS = [
 ]
 
 # 출력 경로
-OUT_DIR      = "data/processed/search_target_v2"
-BASE_MODEL_PATH   = "checkpoints/clip_finetuned_v1"
-LORA_ADAPTER_PATH = "checkpoints/clip_finetuned_v2"
+OUT_DIR      = "data/processed/search_target_DB"
+BASE_MODEL_PATH   = "Bingsu/clip-vit-large-patch14-ko"
+LORA_ADAPTER_PATH = "checkpoints/best_model"
 BATCH_SIZE   = 32
 IMG_EXTS     = {".jpg", ".jpeg", ".png"}
 
@@ -129,22 +129,26 @@ def collect_image_paths(folder: str) -> list[str]:
 
 def load_clip_model(device: str):
     fallback = "openai/clip-vit-base-patch32"
-    base_exists = os.path.exists(BASE_MODEL_PATH)
+
     lora_exists = os.path.exists(LORA_ADAPTER_PATH)
 
-    if base_exists and lora_exists:
-        print(f"베이스 모델 로드: {BASE_MODEL_PATH}")
-        model = CLIPModel.from_pretrained(BASE_MODEL_PATH, torch_dtype=torch.float32).to(device)
-        print(f"LoRA 어댑터 적용: {LORA_ADAPTER_PATH}")
-        model = PeftModel.from_pretrained(model, LORA_ADAPTER_PATH)
-        model = model.merge_and_unload()
-        processor = CLIPProcessor.from_pretrained(BASE_MODEL_PATH)
-    elif base_exists:
-        print(f"v1 가중치 로드 (LoRA 없음): {BASE_MODEL_PATH}")
-        model     = CLIPModel.from_pretrained(BASE_MODEL_PATH).to(device)
-        processor = CLIPProcessor.from_pretrained(BASE_MODEL_PATH)
-    else:
-        print(f"파인튜닝 모델 없음 → 기본 모델 사용: {fallback}")
+    try:
+        if lora_exists:
+            print(f"베이스 모델 로드: {BASE_MODEL_PATH}")
+            model = CLIPModel.from_pretrained(BASE_MODEL_PATH, torch_dtype=torch.float32).to(device)
+            print(f"LoRA 어댑터 적용: {LORA_ADAPTER_PATH}")
+            model = PeftModel.from_pretrained(model, LORA_ADAPTER_PATH)
+            model = model.merge_and_unload()
+            processor = CLIPProcessor.from_pretrained(BASE_MODEL_PATH)
+        else:
+            print(f"백본 가중치 로드 (LoRA 없음): {BASE_MODEL_PATH}")
+            model     = CLIPModel.from_pretrained(BASE_MODEL_PATH).to(device)
+            processor = CLIPProcessor.from_pretrained(BASE_MODEL_PATH)
+            
+    except Exception as e:
+        # 2. 만약 네트워크 에러나 모델명 오타 등으로 실패하면 fallback 모델로 전환합니다.
+        print(f"\n {BASE_MODEL_PATH} 로드 실패 ({e})")
+        print(f"기본 모델 사용: {fallback}")
         model     = CLIPModel.from_pretrained(fallback).to(device)
         processor = CLIPProcessor.from_pretrained(fallback)
 

@@ -22,22 +22,16 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 
 ASSETS: list[dict] = [
     {
-        "name": "clip_finetuned_v1",
-        "drive_id": "19J9O9VKMS0uvZeagy9EEKURIV7XJfNcW",
-        "dest_dir": "checkpoints/clip_finetuned_v1",
-        "check": "checkpoints/clip_finetuned_v1/model.safetensors",
+        "name": "best_model",
+        "drive_id": "1ljguAujYXpt6WrBS7k2QUoDGJKyZKbFn",
+        "dest_dir": "checkpoints/best_model",
+        "check": "checkpoints/best_model/model.safetensors",
     },
     {
-        "name": "clip_finetuned_v2",
-        "drive_id": "1fqIPQAtxeJ6NpCsZ8H3_X19on-D2ZTeA",
-        "dest_dir": "checkpoints/clip_finetuned_v2",
-        "check": "checkpoints/clip_finetuned_v2/adapter_model.safetensors",
-    },
-    {
-        "name": "search_target_v2",
-        "drive_id": "1UggB13bYB-Koi7aOP0jo1pARlf5V6eRL",
-        "dest_dir": "data/processed/search_target_v2",
-        "check": "data/processed/search_target_v2/faiss_jayangdong.index",
+        "name": "search_target_DB",
+        "drive_id": "",
+        "dest_dir": "data/processed/search_target_DB",
+        "check": "data/processed/search_target_DB/faiss_jayangdong.index",
     },
     {
         "name": "raw_tiles_seongdong",

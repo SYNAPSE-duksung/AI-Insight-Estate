@@ -88,9 +88,8 @@ streamlit run app/app.py
 
 | 자산 | 배치 경로 | 용량 | 설명 |
 |---|---|---|---|
-| `clip_finetuned_v1.zip` | `checkpoints/clip_finetuned_v1/` | ~1.6GB | CLIP ViT-L/14 파인튜닝 전체 가중치 (LoRA 베이스) |
-| `clip_finetuned_v2.zip` | `checkpoints/clip_finetuned_v2/` | ~8.4MB | LoRA 어댑터 |
-| `search_target_v2.zip` | `data/processed/search_target_v2/` | ~19MB | FAISS 인덱스 · SQLite 메타데이터 · tile_ids |
+| `best_model` | `checkpoints/best_model/` | ~4.6MB | CLIP ViT-L/14 파인튜닝 LoRA 어댑터 |
+| `search_target_DB.zip` | `data/processed/search_target_DB/` | ~19MB | FAISS 인덱스 · SQLite 메타데이터 · tile_ids |
 | `raw_tiles_seongdong.zip` | `data/raw/tiles/` | ~37MB | 성동구 위성 타일 이미지 (STEP 1 검색 대상) |
 | `raw_search_tiles.zip` | `data/raw/search_tiles/` | ~21MB | 광진구·송파구·중구 위성 타일 이미지 (STEP 2 확장 탐색) |
 
