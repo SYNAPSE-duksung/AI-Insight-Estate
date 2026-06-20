@@ -29,7 +29,7 @@ ASSETS: list[dict] = [
     },
     {
         "name": "search_target_DB",
-        "drive_id": "",
+        "drive_id": "1d8gNc_Q5D394aXAOVu4avDARH8LyH4BW",
         "dest_dir": "data/processed/search_target_DB",
         "check": "data/processed/search_target_DB/faiss_jayangdong.index",
     },
