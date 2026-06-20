@@ -77,8 +77,7 @@ uvicorn api.main:app --port 8000 --reload
 streamlit run app/app.py
 ```
 
-*서버 첫 실행 과정에서 필요한 모델 가중치와 데이터가 자동으로 다운로드됨(gdown)*<br>
-*clip_finetuned_v1이 1.6GB라 다운로드 소요 시간이 길 수 있음*
+*서버 첫 실행 과정에서 필요한 모델 가중치와 데이터가 자동으로 다운로드됨(gdown)*
 
 <br>
 
@@ -88,13 +87,12 @@ streamlit run app/app.py
 
 | 자산 | 배치 경로 | 용량 | 설명 |
 |---|---|---|---|
-| `clip_finetuned_v1.zip` | `checkpoints/clip_finetuned_v1/` | ~1.6GB | CLIP ViT-L/14 파인튜닝 전체 가중치 (LoRA 베이스) |
-| `clip_finetuned_v2.zip` | `checkpoints/clip_finetuned_v2/` | ~8.4MB | LoRA 어댑터 |
-| `search_target_v2.zip` | `data/processed/search_target_v2/` | ~19MB | FAISS 인덱스 · SQLite 메타데이터 · tile_ids |
+| `best_model` | `checkpoints/best_model/` | ~4.6MB | CLIP ViT-L/14 파인튜닝 LoRA 어댑터 |
+| `search_target_DB.zip` | `data/processed/search_target_DB/` | ~19MB | FAISS 인덱스 · SQLite 메타데이터 · tile_ids |
 | `raw_tiles_seongdong.zip` | `data/raw/tiles/` | ~37MB | 성동구 위성 타일 이미지 (STEP 1 검색 대상) |
 | `raw_search_tiles.zip` | `data/raw/search_tiles/` | ~21MB | 광진구·송파구·중구 위성 타일 이미지 (STEP 2 확장 탐색) |
 
-> 위 파일들은 `git clone` 후 첫 실행 시 `download_assets.py`를 통해 Google Drive에서 자동으로 다운로드됩니다.
+> 위 파일들은 `git clone` 후 서버 첫 실행 시 `download_assets.py`를 통해 Google Drive에서 자동으로 다운로드됩니다.
 
 ---
 
@@ -105,14 +103,14 @@ Sat-Prop-CLIP/
 ├── api/                # FastAPI 백엔드 (엔드포인트 · 스키마)
 ├── app/                # Streamlit 프론트엔드 (UI · 지도 · API 클라이언트)
 ├── pipeline/           # ML 파이프라인 (CLIP 인코딩 · FAISS 검색 · 결과 보강)
-├── checkpoints/        # 파인튜닝 모델 가중치 (v1 전체 · v2 LoRA 어댑터)
+├── checkpoints/        # 파인튜닝 모델 가중치 (LoRA 어댑터)
 ├── data/
 │   ├── raw/            # 수집된 위성 타일 이미지
 │   └── processed/      # FAISS 인덱스 · SQLite 메타데이터
 ├── models/             # 파인튜닝 노트북 파일 (CLIP · LoRA)
 ├── config.py           # 전역 설정
 ├── .env                # API 키 (직접 생성 필요, .gitignore 적용)
-└── requirements.txt
+└── requirements_loose.txt
 ```
 
 ---
@@ -173,5 +171,5 @@ flowchart LR
  
 | 이름 | 학번 | 주요 담당 |
 |---|---|---|
-| 이지원 | 20230976 | 데이터 수집 및 전처리, 입지 설명 데이터셋 구축, CLIP ViT-L/14 LoRA 파인튜닝 |
-| 김지은 | 20230980 | 데이터 수집 및 전처리, Streamlit UI, FAISS 인덱스 구축, FastAPI 백엔드 |
+| 이지원 | 20230976 | 데이터 수집 및 전처리, 입지 설명 데이터셋 구축, CLIP ViT-L/14 LoRA 파인튜닝 진행 및 평가지표 분석|
+| 김지은 | 20230980 | 데이터 수집 및 전처리, Streamlit UI, FAISS 인덱스 구축, FastAPI 백엔드, 시스템 파이프라인 구축 |

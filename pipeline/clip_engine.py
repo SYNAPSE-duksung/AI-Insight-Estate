@@ -39,7 +39,7 @@ from download_assets import ensure_assets
 # 설정
 # ──────────────────────────────────────────────────────────────
 
-_BASE_MODEL_PATH    = CLIP_BASE_MODEL_PATH      # v1 전체 가중치 (LoRA 베이스)
+_BASE_MODEL_PATH    = CLIP_BASE_MODEL_PATH      # 전체 가중치 (LoRA 베이스)
 _LORA_ADAPTER_PATH  = CLIP_LORA_ADAPTER_PATH    # LoRA 어댑터
 _FALLBACK_PATH      = CLIP_FALLBACK_MODEL_PATH
 
@@ -76,10 +76,9 @@ class CLIPEngine:
         """
         ensure_assets()  # 누락된 가중치(checkpoints/)를 Google Drive에서 자동 다운로드
 
-        base_exists  = os.path.exists(_BASE_MODEL_PATH)
         lora_exists  = os.path.exists(_LORA_ADAPTER_PATH)
  
-        if base_exists and lora_exists:
+        if lora_exists:
             # ── LoRA 어댑터 병합 ──────────────────────────────
             print(f"[CLIPEngine] 베이스 모델 로드: {_BASE_MODEL_PATH}")
             model = CLIPModel.from_pretrained(
@@ -93,17 +92,11 @@ class CLIPEngine:
             model = model.merge_and_unload()   # 일반 CLIPModel로 변환
             processor = CLIPProcessor.from_pretrained(_BASE_MODEL_PATH)
  
-        elif base_exists:
-            # ── v1 전체 가중치만 사용 ─────────────────────────
+        else:
+            # ── 2. LoRA 없이 한국어 CLIP 전체 가중치만 사용 ─────────────────
             print(f"[CLIPEngine] v1 가중치 로드 (LoRA 없음): {_BASE_MODEL_PATH}")
             model     = CLIPModel.from_pretrained(_BASE_MODEL_PATH).to(self.device)
             processor = CLIPProcessor.from_pretrained(_BASE_MODEL_PATH)
- 
-        else:
-            # ── fallback: OpenAI 기본 가중치 ──────────────────
-            print(f"[CLIPEngine] 파인튜닝 모델 없음 → 기본 모델 사용: {_FALLBACK_PATH}")
-            model     = CLIPModel.from_pretrained(_FALLBACK_PATH).to(self.device)
-            processor = CLIPProcessor.from_pretrained(_FALLBACK_PATH)
  
         model.eval()
         return model, processor
